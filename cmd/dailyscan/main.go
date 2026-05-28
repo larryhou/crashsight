@@ -73,6 +73,8 @@ type IssueReport struct {
 	ExceptionName string       `json:"exceptionName"`
 	ExceptionMsg  string       `json:"exceptionMessage,omitempty"`
 	RawStack      string       `json:"rawStack,omitempty"`
+	Processors    []string     `json:"processors,omitempty"`
+	Status        int          `json:"status"`
 	CrashNum      int64        `json:"crashNum"`
 	CrashUser     int64        `json:"crashUser"`
 	Crashes       []CrashEntry `json:"crashes"`
@@ -176,11 +178,21 @@ func main() {
 			}
 		}
 
+		// 解析 processors（分号分隔的 ID 串，过滤空值）
+		var processors []string
+		for _, p := range strings.Split(issue.Processors, ";") {
+			if p = strings.TrimSpace(p); p != "" {
+				processors = append(processors, p)
+			}
+		}
+
 		entry := IssueReport{
 			IssueID:       issue.IssueID,
 			ExceptionName: issue.ExceptionName,
 			ExceptionMsg:  issue.ExceptionMessage,
 			RawStack:      issue.KeyStack,
+			Processors:    processors,
+			Status:        issue.Status,
 			CrashNum:      int64(len(crashes)),
 			CrashUser:     int64(len(uniqueDevices)),
 			Crashes:       crashes,
