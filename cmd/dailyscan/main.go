@@ -1,15 +1,15 @@
-// dailyscan 扫描当日所有崩溃问题，输出每条 crash 的完整设备信息。
+// dailyscan 扫描指定时间窗口内所有崩溃问题，输出每条 crash 的完整设备信息。
 //
 // crashList GET 接口的 crashDatas 已包含 gpu/gpuDriverVersion/cpuName/memSize，
 // 无需逐条调 GetCrashDoc，每个 issue 只需一次请求。
 //
-// 运行（默认过滤 Physical.RealisticMP / Cloud.RealisticMP）:
+// 运行（默认只看今天，过滤 Physical.RealisticMP / Cloud.RealisticMP）:
 //
 //	go run ./cmd/dailyscan -out report.json
 //
-// 指定日期:
+// -days N 表示累计最近 N+1 天（N 天前到今天）:
 //
-//	go run ./cmd/dailyscan -date 20260527
+//	go run ./cmd/dailyscan -days 2 -out report.json   # 3天前到今天
 //
 // 自定义版本前缀:
 //
@@ -72,6 +72,7 @@ type IssueReport struct {
 	IssueID       string       `json:"issueId"`
 	ExceptionName string       `json:"exceptionName"`
 	ExceptionMsg  string       `json:"exceptionMessage,omitempty"`
+	RawStack      string       `json:"rawStack,omitempty"`
 	CrashNum      int64        `json:"crashNum"`
 	CrashUser     int64        `json:"crashUser"`
 	Crashes       []CrashEntry `json:"crashes"`
@@ -79,18 +80,19 @@ type IssueReport struct {
 
 // ScanReport 整体扫描报告。
 type ScanReport struct {
-	Date        string        `json:"date"`
-	AppID       string        `json:"appId"`
-	Platform    string        `json:"platform"`
-	Prefixes    []string      `json:"versionPrefixes"`
-	TotalIssue  int           `json:"totalIssue"`
-	TotalCrash  int64         `json:"totalCrash"`
-	Issues      []IssueReport `json:"issues"`
+	StartDate  string        `json:"startDate"`
+	EndDate    string        `json:"endDate"`
+	AppID      string        `json:"appId"`
+	Platform   string        `json:"platform"`
+	Prefixes   []string      `json:"versionPrefixes"`
+	TotalIssue int           `json:"totalIssue"`
+	TotalCrash int64         `json:"totalCrash"`
+	Issues     []IssueReport `json:"issues"`
 }
 
 func main() {
-	dateFlag := flag.String("date", "", "扫描日期 YYYYMMDD，默认今天")
-	maxIssues := flag.Int("max-issues", 0, "最多扫描 issue 数量，0 表示全部")
+	daysFlag := flag.Int("days", 0, "时间窗口天数，0=仅今天，N=N天前到今天（共N+1天）")
+	maxIssues := flag.Int("max-issues", 50, "最多扫描 issue 数量，0 表示全部")
 	outFile := flag.String("out", "", "输出到文件（JSON），默认 stdout")
 	rowsPerIssue := flag.Int("rows", 0, "每个 issue 最多拉取的 crash 总数，0 表示全量分页拉取")
 	var prefixes versionPrefixes
@@ -120,26 +122,32 @@ func main() {
 	)
 	ctx := context.Background()
 
-	date := *dateFlag
-	if date == "" {
-		date = time.Now().Format("20060102")
+	today := time.Now()
+	endDate := today.Format("20060102")
+	startDate := today.AddDate(0, 0, -*daysFlag).Format("20060102")
+
+	// 构建日期集合用于 crash 过滤（格式 YYYY-MM-DD）
+	dateSet := make(map[string]bool)
+	for i := 0; i <= *daysFlag; i++ {
+		d := today.AddDate(0, 0, -i)
+		dateSet[d.Format("2006-01-02")] = true
 	}
 
-	log.Printf("开始扫描 appId=%s date=%s 版本前缀=%v", appID, date, []string(prefixes))
+	log.Printf("开始扫描 appId=%s startDate=%s endDate=%s 版本前缀=%v", appID, startDate, endDate, []string(prefixes))
 
-	// ── Step 1: 拉取当日 TOP issue 列表（1次请求）─────────────────
-	issues, err := fetchAllIssues(ctx, client, appID, date, *maxIssues)
+	// ── Step 1: 拉取时间窗口内 TOP issue 列表（1次请求）─────────────────
+	issues, err := fetchAllIssues(ctx, client, appID, startDate, endDate, *maxIssues)
 	if err != nil {
 		log.Fatalf("获取 issue 列表失败: %v", err)
 	}
 	log.Printf("共获取到 %d 个 issue", len(issues))
 
 	report := ScanReport{
-		Date:       date,
-		AppID:      appID,
-		Platform:   "PC",
-		Prefixes:   []string(prefixes),
-		TotalIssue: len(issues),
+		StartDate: startDate,
+		EndDate:   endDate,
+		AppID:     appID,
+		Platform:  "PC",
+		Prefixes:  []string(prefixes),
 	}
 
 	// ── Step 2: 每个 issue 一次 GetCrashList（rows=500）──────────
@@ -148,19 +156,33 @@ func main() {
 		log.Printf("[%d/%d] issueId=%s crashNum=%d %s",
 			i+1, len(issues), issue.IssueID, issue.CrashNum, issue.ExceptionName)
 
-		// date 格式 20260528，转为 uploadTime 前缀 "2026-05-28"
-		dateFilter := date[:4] + "-" + date[4:6] + "-" + date[6:]
-		crashes, err := fetchCrashesForIssue(ctx, client, appID, issue.IssueID, *rowsPerIssue, []string(prefixes), dateFilter)
+		crashes, err := fetchCrashesForIssue(ctx, client, appID, issue.IssueID, *rowsPerIssue, []string(prefixes), dateSet, startDate)
 		if err != nil {
 			logAPIError(fmt.Sprintf("GetCrashList issueId=%s", issue.IssueID), err)
+		}
+
+		// 过滤后为空则跳过
+		if len(crashes) == 0 {
+			log.Printf("  跳过（过滤后无 crash）")
+			time.Sleep(2500 * time.Millisecond)
+			continue
+		}
+
+		// 按过滤后结果修正 crashNum/crashUser（crashUser 按 deviceId 去重）
+		uniqueDevices := make(map[string]struct{})
+		for _, c := range crashes {
+			if c.DeviceID != "" {
+				uniqueDevices[c.DeviceID] = struct{}{}
+			}
 		}
 
 		entry := IssueReport{
 			IssueID:       issue.IssueID,
 			ExceptionName: issue.ExceptionName,
 			ExceptionMsg:  issue.ExceptionMessage,
-			CrashNum:      issue.CrashNum,
-			CrashUser:     issue.CrashUser,
+			RawStack:      issue.KeyStack,
+			CrashNum:      int64(len(crashes)),
+			CrashUser:     int64(len(uniqueDevices)),
 			Crashes:       crashes,
 		}
 		report.Issues = append(report.Issues, entry)
@@ -170,7 +192,8 @@ func main() {
 		time.Sleep(2500 * time.Millisecond)
 	}
 
-	log.Printf("扫描完成：%d issues，%d crash 条目（过滤后）", len(report.Issues), report.TotalCrash)
+	report.TotalIssue = len(report.Issues)
+	log.Printf("扫描完成：%d issues，%d crash 条目（过滤后）", report.TotalIssue, report.TotalCrash)
 
 	// ── Step 3: 输出 ──────────────────────────────────────────────
 	enc := json.NewEncoder(os.Stdout)
@@ -189,11 +212,11 @@ func main() {
 	}
 }
 
-// fetchAllIssues 拉取当日 TOP issue 列表（1次请求）。
-func fetchAllIssues(ctx context.Context, client *crashsight.Client, appID, date string, maxIssues int) ([]crashsight.IssueItem, error) {
+// fetchAllIssues 拉取时间窗口内 TOP issue 列表（1次请求）。
+func fetchAllIssues(ctx context.Context, client *crashsight.Client, appID, minDate, maxDate string, maxIssues int) ([]crashsight.IssueItem, error) {
 	resp, err := client.GetTopIssues(ctx, appID, crashsight.PlatformPC, crashsight.GetTopIssuesParams{
-		MinDate:          date,
-		MaxDate:          date,
+		MinDate:          minDate,
+		MaxDate:          maxDate,
 		VersionList:      []string{"-1"},
 		CrashType:        crashsight.CrashTypeCrash,
 		Limit:            100,
@@ -212,8 +235,12 @@ func fetchAllIssues(ctx context.Context, client *crashsight.Client, appID, date 
 
 // fetchCrashesForIssue 分页拉取 issue 下所有 crash（每页 100 条，按 numFound 循环）。
 // crashDatas 已包含 gpu/gpuDriverVersion/cpuName/memSize，无需调 GetCrashDoc。
-// dateFilter 非空时按 uploadTime 前缀匹配（格式 YYYY-MM-DD），只保留当天数据。
-func fetchCrashesForIssue(ctx context.Context, client *crashsight.Client, appID, issueID string, maxRows int, prefixes []string, dateFilter string) ([]CrashEntry, error) {
+// dateSet 为允许的日期集合（格式 YYYY-MM-DD），只保留集合内日期的数据。
+// minDateDash 为最早日期（格式 YYYY-MM-DD），crashList 倒序返回，早于此日期可提前终止。
+func fetchCrashesForIssue(ctx context.Context, client *crashsight.Client, appID, issueID string, maxRows int, prefixes []string, dateSet map[string]bool, minDate string) ([]CrashEntry, error) {
+	// 将 minDate YYYYMMDD 转为 YYYY-MM-DD 便于与 uploadTime 比较
+	minDateDash := minDate[:4] + "-" + minDate[4:6] + "-" + minDate[6:]
+
 	const pageSize = 100
 	entries := make([]CrashEntry, 0)
 	start := 0
@@ -239,8 +266,12 @@ func fetchCrashesForIssue(ctx context.Context, client *crashsight.Client, appID,
 		for _, crashID := range resp.CrashIDList {
 			d := resp.CrashDatas[crashID]
 
-			// 日期过滤：uploadTime 格式 "2026-05-28 18:36:11"，前缀匹配日期
-			if dateFilter != "" && !strings.HasPrefix(d.UploadTime, dateFilter) {
+			// 日期过滤：uploadTime 格式 "2026-05-28 18:36:11"，取前10字符作为日期键
+			var uploadDateKey string
+			if len(d.UploadTime) >= 10 {
+				uploadDateKey = d.UploadTime[:10]
+			}
+			if !dateSet[uploadDateKey] {
 				outOfDate++
 				continue
 			}
@@ -275,10 +306,17 @@ func fetchCrashesForIssue(ctx context.Context, client *crashsight.Client, appID,
 
 		start += pageSize
 
-		// crashList 按 uploadTime 倒序，一旦当页全部超出日期范围可提前终止
-		if dateFilter != "" && outOfDate == len(resp.CrashIDList) && len(resp.CrashIDList) > 0 {
-			log.Printf("  当页全部早于 %s，提前终止", dateFilter)
-			break
+		// crashList 按 uploadTime 倒序，一旦当页所有条目的日期都早于 minDateDash 可提前终止
+		if len(resp.CrashIDList) > 0 {
+			last := resp.CrashDatas[resp.CrashIDList[len(resp.CrashIDList)-1]]
+			var lastDate string
+			if len(last.UploadTime) >= 10 {
+				lastDate = last.UploadTime[:10]
+			}
+			if lastDate != "" && lastDate < minDateDash {
+				log.Printf("  末条 uploadTime=%s 早于 %s，提前终止", last.UploadTime, minDateDash)
+				break
+			}
 		}
 		if len(resp.CrashIDList) < pageSize || start >= numFound {
 			break

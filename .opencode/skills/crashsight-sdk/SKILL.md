@@ -627,24 +627,26 @@ CRASHSIGHT_REGION=cn \
 python3 compare_test.py
 ```
 
-### 7.7 dailyscan — 当日崩溃全量扫描
+### 7.7 dailyscan — 崩溃全量扫描（支持时间窗口）
 
-`cmd/dailyscan` 扫描当日所有 TOP issue，输出每条 crash 的完整设备信息（GPU/CPU/Memory/Driver）。
+`cmd/dailyscan` 扫描指定时间窗口内所有 TOP issue，输出每条 crash 的完整设备信息（GPU/CPU/Memory/Driver）。
+
+**`-days N` 语义：** N 天前到今天，共 N+1 天的累积数据。`-days 0`（默认）= 仅今天。
 
 **流程：**
-1. `GetTopIssues(date, date)` 拉当日 TOP 100 issue（1 次请求）
-2. 每个 issue 调 `GetCrashList`（每页 100 条，分页循环），客户端按 `uploadTime` 日期前缀过滤当天数据，倒序时一旦当页全部超出日期可提前终止
+1. `GetTopIssues(startDate, endDate)` 拉时间窗口内 TOP 100 issue（1 次请求）
+2. 每个 issue 调 `GetCrashList`（每页 100 条，分页循环），客户端按 `uploadTime[:10]` 匹配日期集合，倒序时末条日期早于 startDate 可提前终止
 3. `crashDatas` 已含所有设备字段，无需 `GetCrashDoc`
 
 ```bash
-# 默认：过滤 Physical.RealisticMP / Cloud.RealisticMP，输出 stdout
+# 默认：只看今天，过滤 Physical.RealisticMP / Cloud.RealisticMP，输出 stdout
 go run ./cmd/dailyscan
 
 # 输出到文件
 go run ./cmd/dailyscan -out report.json
 
-# 指定日期
-go run ./cmd/dailyscan -date 20260527 -out report.json
+# 最近 3 天（2 天前到今天）
+go run ./cmd/dailyscan -days 2 -out report.json
 
 # 自定义版本前缀（可多次指定）
 go run ./cmd/dailyscan -version-prefix Physical.Ma3 -version-prefix Cloud.Ma3
@@ -656,7 +658,8 @@ go run ./cmd/dailyscan -max-issues 5 -rows 200
 **输出 JSON 结构：**
 ```json
 {
-  "date": "20260528",
+  "startDate": "20260526",
+  "endDate": "20260528",
   "appId": "3f8a39cdee",
   "platform": "PC",
   "versionPrefixes": ["Physical.RealisticMP", "Cloud.RealisticMP"],

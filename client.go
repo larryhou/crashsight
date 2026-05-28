@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 )
@@ -158,7 +159,7 @@ func (c *Client) post(ctx context.Context, path string, body any, out any) error
 	}
 	defer resp.Body.Close()
 
-	return c.handleResponse(resp, out)
+	return c.handleResponse(path, resp, out)
 }
 
 // get 发送 GET 请求，将鉴权参数与 query 合并后发送，响应解包后反序列化到 out。
@@ -177,7 +178,7 @@ func (c *Client) get(ctx context.Context, path string, query url.Values, out any
 	}
 	defer resp.Body.Close()
 
-	return c.handleResponse(resp, out)
+	return c.handleResponse(path, resp, out)
 }
 
 // handleResponse 统一处理 HTTP 响应：
@@ -187,7 +188,10 @@ func (c *Client) get(ctx context.Context, path string, query url.Values, out any
 //  4. ret.code != 200 → APIError，并解包 ret.data
 //  5. 顶层 code != 0/200 → APIError，并解包 data
 //  6. 否则直接反序列化到 out
-func (c *Client) handleResponse(resp *http.Response, out any) error {
+//
+// 调试：设置环境变量 CRASHSIGHT_DEBUG_JSON=1 打印所有接口原始响应；
+// 或设置为接口路径关键词（如 getTopIssueEx）只打印匹配的接口。
+func (c *Client) handleResponse(path string, resp *http.Response, out any) error {
 	switch resp.StatusCode {
 	case http.StatusUnauthorized:
 		body, _ := io.ReadAll(resp.Body)
@@ -199,6 +203,16 @@ func (c *Client) handleResponse(resp *http.Response, out any) error {
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return &TransportError{Cause: err}
+	}
+
+	// CRASHSIGHT_DEBUG_JSON=1 打印所有接口；设为路径关键词只打印匹配的接口。
+	if dbg := os.Getenv("CRASHSIGHT_DEBUG_JSON"); dbg != "" && (dbg == "1" || strings.Contains(path, dbg)) {
+		var pretty bytes.Buffer
+		if json.Indent(&pretty, body, "", "  ") == nil {
+			fmt.Fprintf(os.Stderr, "── CRASHSIGHT DEBUG [%s] ──\n%s\n──────────────────────────────\n", path, pretty.String())
+		} else {
+			fmt.Fprintf(os.Stderr, "── CRASHSIGHT DEBUG [%s] ──\n%s\n──────────────────────────────\n", path, body)
+		}
 	}
 
 	// 尝试解析为通用 map 以便检查 envelope 格式
