@@ -12,7 +12,7 @@ import (
 	"os"
 	"time"
 
-	crashsight "github.com/larryhou/crashsight-go"
+	crashsight "github.com/larryhou/crashsight"
 )
 
 func main() {

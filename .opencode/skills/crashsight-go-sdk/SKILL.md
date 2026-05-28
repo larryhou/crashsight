@@ -1,6 +1,6 @@
 ---
 name: crashsight-go-sdk
-description: Use when working on or integrating the CrashSight Go SDK (crashsight-go). Covers API architecture, all method signatures, request/response types, error handling, authentication, and quickstart guide for downstream projects. Trigger on keywords: crashsight, crashsight-go, CrashSight SDK, openapi, GetTrend, GetTopIssues, GetCrashDoc, IssueItem, CrashMap, Platform, APIError.
+description: Use when working on or integrating the CrashSight Go SDK (github.com/larryhou/crashsight). Covers API architecture, all method signatures, request/response types, error handling, authentication, and quickstart guide for downstream projects. Trigger on keywords: crashsight, crashsight-go, CrashSight SDK, openapi, GetTrend, GetTopIssues, GetCrashDoc, IssueItem, CrashMap, Platform, APIError.
 ---
 
 # CrashSight Go SDK — 架构与快速开始
@@ -8,7 +8,7 @@ description: Use when working on or integrating the CrashSight Go SDK (crashsigh
 ## 项目位置
 
 ```
-github.com/larryhou/crashsight-go
+github.com/larryhou/crashsight
 ```
 
 零外部依赖，全部使用 Go 标准库（`net/http`, `crypto/hmac`, `crypto/sha256`, `encoding/json` 等）。
@@ -23,7 +23,7 @@ graph TD
         App[用户代码]
     end
 
-    subgraph crashsight-go SDK
+    subgraph github.com/larryhou/crashsight
         NC[NewClient\nclient.go]
         Auth[auth.go\nHMAC-SHA256 签名]
         HR[handleResponse\n多 Envelope 解包]
@@ -65,7 +65,7 @@ graph TD
 ## 二、文件结构
 
 ```
-module crashsight-go   →   module github.com/larryhou/crashsight-go
+module github.com/larryhou/crashsight
 ```
 
 ---
@@ -298,7 +298,7 @@ if err != nil {
 
 ```mermaid
 mindmap
-  root((crashsight-go\nSDK))
+  root((github.com/larryhou/crashsight))
     趋势统计
       GetTrend 日趋势
       GetDailySummary 日级汇总
@@ -394,7 +394,7 @@ mindmap
 ```mermaid
 sequenceDiagram
     participant App as 调用方
-    participant SDK as crashsight-go SDK
+    participant SDK as crashsight SDK
     participant API as CrashSight API
 
     App->>SDK: GetTopIssues(minDate, maxDate, limit=1)
@@ -494,15 +494,15 @@ module your-project
 
 go 1.21
 
-require github.com/larryhou/crashsight-go v0.0.0
+require github.com/larryhou/crashsight v0.0.0
 
-replace github.com/larryhou/crashsight-go => /path/to/crashsight-go
+replace github.com/larryhou/crashsight => /path/to/crashsight
 ```
 
 待正式打 tag 后可直接引入：
 
 ```go
-require github.com/larryhou/crashsight-go v1.0.0
+require github.com/larryhou/crashsight v1.0.0
 ```
 
 ### 7.3 凭据获取
@@ -536,7 +536,7 @@ import (
     "os"
     "time"
 
-    crashsight "crashsight-go"
+    crashsight "github.com/larryhou/crashsight"
 )
 
 func main() {
@@ -570,7 +570,7 @@ func main() {
 ### 7.5 运行集成测试
 
 ```bash
-cd crashsight-go
+cd crashsight
 CRASHSIGHT_USER_ID=<userId> \
 CRASHSIGHT_API_KEY=<apiKey> \
 CRASHSIGHT_APP_ID=<appId> \

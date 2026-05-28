@@ -22,7 +22,7 @@ import (
 	"os"
 	"time"
 
-	sdk "github.com/larryhou/crashsight-go"
+	sdk "github.com/larryhou/crashsight"
 )
 
 func main() {
