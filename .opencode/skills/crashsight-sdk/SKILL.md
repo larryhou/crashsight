@@ -1,6 +1,6 @@
 ---
 name: crashsight-sdk
-description: Use when working on or integrating the CrashSight Go SDK (github.com/larryhou/crashsight). Covers API architecture, all method signatures, request/response types, error handling, authentication, and quickstart guide for downstream projects. Trigger on keywords: crashsight, crashsight-go, CrashSight SDK, openapi, GetTrend, GetTopIssues, GetCrashDoc, IssueItem, CrashMap, Platform, APIError.
+description: "Use when working on or integrating the CrashSight Go SDK (github.com/larryhou/crashsight). Covers API architecture, all method signatures, request/response types, error handling, authentication, and quickstart guide for downstream projects. Trigger on keywords: crashsight, crashsight-go, CrashSight SDK, openapi, GetTrend, GetTopIssues, GetCrashDoc, IssueItem, CrashMap, Platform, APIError."
 ---
 
 # CrashSight Go SDK — 架构与快速开始
