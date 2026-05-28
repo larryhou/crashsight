@@ -1,0 +1,17 @@
+# 编译产物
+/compare
+/demo
+*.exe
+*.test
+
+# 环境变量文件
+.env
+.env.*
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# macOS
+.DS_Store
