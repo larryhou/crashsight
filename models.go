@@ -478,9 +478,9 @@ type BindBugsParams struct {
 type GetCrashListParams struct {
 	// IssueID 问题 ID。必填。
 	IssueID string
-	// Start 分页偏移，默认 0。
+	// Start 分页偏移，默认 0。配合 Rows 做翻页：start=0,100,200,...
 	Start int
-	// Rows 每页条数，默认 50。
+	// Rows 每页条数，默认 100。官方限制最大 100。
 	Rows int
 	// ExceptionTypeList 异常类型过滤，默认 ExceptionTypeCrash。
 	ExceptionTypeList string
@@ -488,17 +488,26 @@ type GetCrashListParams struct {
 	Version string
 }
 
-// CrashData 单条崩溃记录摘要。
+// CrashData 单条崩溃记录摘要（来自 crashList GET 接口的 crashDatas 字段）。
+// 已包含完整设备信息，无需再调 GetCrashDoc。
 type CrashData struct {
-	ProductVersion string `json:"productVersion"`
-	DumpID         string `json:"dumpId"`
-	Model          string `json:"model"`
-	ID             string `json:"id"`
-	UploadTime     string `json:"uploadTime"`
 	CrashID        string `json:"crashId"`
-	OsVer          string `json:"osVer"`
+	UploadTime     string `json:"uploadTime"`
+	ProductVersion string `json:"productVersion"`
 	DeviceID       string `json:"deviceId"`
 	UserID         string `json:"userId"`
+	OsVer          string `json:"osVer"`
+	Model          string `json:"model"`
+	DumpID         string `json:"dumpId"`
+	ID             string `json:"id"`
+	// GPU 名称（如 "NVIDIA GeForce RTX 4060"）
+	GPU              string `json:"gpu"`
+	// GpuDriverVersion GPU 驱动版本（如 "32.0.15.7688"）
+	GpuDriverVersion string `json:"gpuDriverVersion"`
+	// CpuName CPU 型号
+	CpuName          string `json:"cpuName"`
+	// MemSize 物理内存总量（字节，字符串形式）
+	MemSize          string `json:"memSize"`
 }
 
 // CrashListResponse GetCrashList 的响应。
@@ -646,6 +655,10 @@ type CrashMap struct {
 	RqdUuid            string `json:"rqdUuid"`
 	SubVersionIssueID  string `json:"subVersionIssueId"`
 	KeyStack           string `json:"keyStack,omitempty"`
+	// GPU GPU 名称（如 "NVIDIA GeForce RTX 2060 SUPER"）。
+	GPU                string `json:"gpu"`
+	// GpuDriverVersion GPU 驱动版本（如 "32.0.15.7680"）。
+	GpuDriverVersion   string `json:"gpuDriverVersion"`
 }
 
 // DetailMap 崩溃附加详情（crashDoc 响应中的 detailMap）。
@@ -682,16 +695,17 @@ type DetailMap struct {
 }
 
 // CrashDocResponse GetCrashDoc 的完整响应。
+// 所有设备字段（GPU/CPU/内存/驱动版本）均在 CrashMap 中。
 type CrashDocResponse struct {
-	StatusCode            int       `json:"statusCode"`
-	Message               string    `json:"message"`
-	NumFound              int       `json:"numFound"`
-	CrashMap              CrashMap  `json:"crashMap"`
-	DetailMap             DetailMap `json:"detailMap"`
-	LaunchTime            int64     `json:"launchTime"`
-	ReqSendTimestamp      int64     `json:"reqSendTimestamp,omitempty"`
-	RspReceivedTimestamp  int64     `json:"rspReceivedTimestamp,omitempty"`
-	RspSendTimestamp      int64     `json:"rspSendTimestamp,omitempty"`
+	StatusCode           int       `json:"statusCode"`
+	Message              string    `json:"message"`
+	NumFound             int       `json:"numFound"`
+	CrashMap             CrashMap  `json:"crashMap"`
+	DetailMap            DetailMap `json:"detailMap"`
+	LaunchTime           int64     `json:"launchTime"`
+	ReqSendTimestamp     int64     `json:"reqSendTimestamp,omitempty"`
+	RspReceivedTimestamp int64     `json:"rspReceivedTimestamp,omitempty"`
+	RspSendTimestamp     int64     `json:"rspSendTimestamp,omitempty"`
 }
 
 // QueryCrashListParams QueryCrashList 的参数。

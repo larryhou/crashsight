@@ -14,8 +14,14 @@ import (
 // GetCrashList 根据 issueId 获取崩溃列表（支持 PC）。
 //
 // 对应接口: POST /uniform/openapi/crashList
+//
+// crashDatas 中已包含 gpu/gpuDriverVersion/cpuName/memSize 等完整设备字段，
+// 无需再调 GetCrashDoc。
 func (c *Client) GetCrashList(ctx context.Context, appID string, platform Platform, p GetCrashListParams) (*CrashListResponse, error) {
-	rows := intDefault(p.Rows, 50)
+	rows := intDefault(p.Rows, 100)
+	if rows > 100 {
+		rows = 100
+	}
 	exType := strDefault(p.ExceptionTypeList, ExceptionTypeCrash)
 	pid := int(platform)
 

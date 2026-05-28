@@ -229,6 +229,7 @@ TopIssueDataTypeUnSystemExit TopIssueDataType = "unSystemExit"
 | `CrashMap` | `MemSize`, `DiskSize`, `FreeMem`, `FreeStorage`, `FreeSdCard`, `TotalSD` | 字符串 `"1587986432"` | `string` |
 | `CrashMap` | `IsRooted`, `AppInBack` | 字符串 `"true"` | `string` |
 | `CrashMap` | `IsVirtualMachine` | 整数 `0/1` | `int` |
+| `CrashMap` | `GPU`, `GpuDriverVersion` | 字符串 | `string`（新增） |
 | `LastCrashResponse` | `AppInBack`, `LaunchTime` | 字符串 | `string` |
 | `TagInfo` | `TagID` | 整数 `69672` | `int64` |
 | `VersionItem` | `Enable` | 整数 `0/1` | `int` |
@@ -236,6 +237,7 @@ TopIssueDataTypeUnSystemExit TopIssueDataType = "unSystemExit"
 | `ProcessorItem` | `IsShow` | 字符串 `"true"` | `string` |
 | `ProcessorItem` | `IsOperator` | 整数 `0/1` | `int` |
 | `IssueInfo`/`GetCrashDoc` | `platformId`（请求体） | 字符串 | SDK 内部自动转换 |
+| `CrashData` | `MemSize` | 字符串字节数 `"34265366528"` | `string`（需手动转 MB） |
 
 ### 4.3 工具函数
 
@@ -380,14 +382,50 @@ mindmap
 
 | 方法 | 接口 | 说明 |
 |---|---|---|
-| `GetCrashList` | `POST /crashList` | `GetCrashListParams{IssueID, Start, Rows}` → `CrashListResponse.CrashIDList` |
+| `GetCrashList` | `POST /crashList` | `GetCrashListParams{IssueID, Start, Rows}`；`Rows` 最大 100，`NumFound` 为总数，用 `start+=100` 分页；`crashDatas` 已含 `GPU/GpuDriverVersion/CpuName/MemSize` 完整设备字段，**无需再调 `GetCrashDoc`** |
 | `GetLastCrash` | `POST /lastCrashInfo` | 返回 `LastCrashResponse.CrashID` |
 | `GetCrashDetail` | `POST /appDetailCrash` | 返回日志/附件/KV，需先用 `CrashIDToHash` 转换 |
-| `GetCrashDoc` | `POST /crashDoc` | 完整堆栈，`GetCrashDocParams{LogType, NeedCustomKV}` |
+| `GetCrashDoc` | `POST /crashDoc` | 完整堆栈，`GetCrashDocParams{LogType, NeedCustomKV}`；`CrashMap` 含 `GPU`/`GpuDriverVersion`/`CpuName`/`MemSize` |
 | `GetANRMessage` | `POST /appDetailCrash` | 过滤 `anrMessage.txt`/`trace.zip` |
-| `QueryCrashList` | `POST /queryCrashList` | 按条件搜索，`QueryCrashListParams{Keyword, DeviceID ...}` |
+| `QueryCrashList` | `POST /queryCrashList` | 按条件搜索，`QueryCrashListParams{Keyword, DeviceID, StartDate, EndDate ...}`；支持服务端日期过滤但**不支持按 issueId 过滤** |
 | `AdvancedSearch` | `POST /advancedSearchEx` | `AdvancedSearchParams{StartHour, EndHour}` 格式 `YYYYMMDDHH` |
 | `GetStackCrashStat` | `POST /getStackCrashStat/platformId/{pid}` | `GetStackCrashStatParams{KeyName, StartTime, EndTime}` 支持 `*` 通配 |
+
+**crashList 分页拉取 + 日期过滤模式（`crashList` 无服务端日期参数，客户端过滤）：**
+
+```go
+const pageSize = 100
+start := 0
+for {
+    resp, _ := client.GetCrashList(ctx, appID, platform, crashsight.GetCrashListParams{
+        IssueID: issueID, Start: start, Rows: pageSize,
+    })
+    for _, crashID := range resp.CrashIDList {
+        d := resp.CrashDatas[crashID]
+        if !strings.HasPrefix(d.UploadTime, "2026-05-28") { // 日期过滤
+            continue
+        }
+        // d.GPU / d.GpuDriverVersion / d.CpuName / d.MemSize 已可直接使用
+        memMB, _ := strconv.ParseInt(d.MemSize, 10, 64)
+        memMB /= 1024 * 1024
+    }
+    start += pageSize
+    if len(resp.CrashIDList) < pageSize || start >= int(resp.NumFound) {
+        break
+    }
+}
+```
+
+**crashDatas 设备字段说明（PC 平台）：**
+
+| 字段 | 说明 | 示例 |
+|---|---|---|
+| `GPU` | GPU 型号 | `"NVIDIA GeForce RTX 4060"` |
+| `GpuDriverVersion` | GPU 驱动版本 | `"32.0.15.7688"` |
+| `CpuName` | CPU 型号 | `"Intel(R) Core(TM) i5-14400F"` |
+| `MemSize` | 物理内存总量（字节字符串） | `"34265366528"` |
+| `ProductVersion` | App 版本号 | `"Cloud.RealisticMP.2026-05-28.6230498"` |
+| `UploadTime` | 上报时间（倒序排列） | `"2026-05-28 18:36:11"` |
 
 **级联查询标准链路：**
 
@@ -589,6 +627,62 @@ CRASHSIGHT_REGION=cn \
 python3 compare_test.py
 ```
 
+### 7.7 dailyscan — 当日崩溃全量扫描
+
+`cmd/dailyscan` 扫描当日所有 TOP issue，输出每条 crash 的完整设备信息（GPU/CPU/Memory/Driver）。
+
+**流程：**
+1. `GetTopIssues(date, date)` 拉当日 TOP 100 issue（1 次请求）
+2. 每个 issue 调 `GetCrashList`（每页 100 条，分页循环），客户端按 `uploadTime` 日期前缀过滤当天数据，倒序时一旦当页全部超出日期可提前终止
+3. `crashDatas` 已含所有设备字段，无需 `GetCrashDoc`
+
+```bash
+# 默认：过滤 Physical.RealisticMP / Cloud.RealisticMP，输出 stdout
+go run ./cmd/dailyscan
+
+# 输出到文件
+go run ./cmd/dailyscan -out report.json
+
+# 指定日期
+go run ./cmd/dailyscan -date 20260527 -out report.json
+
+# 自定义版本前缀（可多次指定）
+go run ./cmd/dailyscan -version-prefix Physical.Ma3 -version-prefix Cloud.Ma3
+
+# 调试：只扫描前 N 个 issue，每 issue 最多 M 条 crash
+go run ./cmd/dailyscan -max-issues 5 -rows 200
+```
+
+**输出 JSON 结构：**
+```json
+{
+  "date": "20260528",
+  "appId": "3f8a39cdee",
+  "platform": "PC",
+  "versionPrefixes": ["Physical.RealisticMP", "Cloud.RealisticMP"],
+  "totalIssue": 100,
+  "totalCrash": 342,
+  "issues": [{
+    "issueId": "878542d1bc9f832123b71910c3df28fa",
+    "exceptionName": "UNREAL_ASSERT_EXCEPTION(0x00004000)",
+    "crashNum": 17,
+    "crashUser": 15,
+    "crashes": [{
+      "crashId": "caaa5a6c270f4c1d97c77f90a8c62737",
+      "uploadTime": "2026-05-28 18:36:11",
+      "appVersion": "Cloud.RealisticMP.2026-05-28.6230498",
+      "gpu": "NVIDIA GeForce RTX 5090 D v2",
+      "gpuDriverVersion": "32.0.15.9579",
+      "cpu": "AMD Ryzen 9 9950X 16-Core Processor",
+      "memoryMB": 128568,
+      "deviceId": "00-ff-34-84-1d-a1",
+      "userId": "Administrator",
+      "osVer": "Microsoft Windows 11(22631)"
+    }]
+  }]
+}
+```
+
 ---
 
 ## 八、注意事项
@@ -603,3 +697,8 @@ python3 compare_test.py
 | **GetIssueTrend 日期格式** | `MinDate`/`MaxDate` 格式为 `YYYY-MM-DD HH:MM:SS`，注意勿混用 Go format 字符串 |
 | **并发安全** | `Client` 可跨 goroutine 共享，无需加锁 |
 | **context 超时** | 所有方法接受 `context.Context`，推荐配合 `context.WithTimeout` 控制单次调用 |
+| **GetCrashList 分页** | `Rows` 最大 **100**（官方限制），`NumFound` 为总量，需用 `start+=100` 循环翻页 |
+| **GetCrashList 排序** | 按 `uploadTime` **倒序**返回，无法指定排序字段；按 issue 拉全量历史，无服务端日期过滤参数，需客户端按 `uploadTime` 前缀过滤 |
+| **GetCrashList 设备字段** | `crashDatas` 已含 `gpu/gpuDriverVersion/cpuName/memSize`，**无需再调 `GetCrashDoc`** 补充设备信息 |
+| **crashDataType 参数** | `/crashList` body 中 `crashDataType` 固定传 `"undefined"`，SDK 已内置，无需手动设置 |
+| **GetVersionDateList 列顺序** | 服务端实际返回 3 列 `["dtEventTime","product_version","first_date"]`，SDK 按 columns 动态定位，`first_date` 格式 `"2026-05-28"` |

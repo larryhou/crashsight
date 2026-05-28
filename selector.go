@@ -33,14 +33,15 @@ func (c *Client) GetSelectorData(ctx context.Context, appID string, platform Pla
 // GetVersionDateList 获取版本号与首次出现日期的对应列表。
 //
 // 对应接口: POST /uniform/openapi/getVersionDateList
+//
+// 服务端实际返回 3 列: ["dtEventTime", "product_version", "first_date"]，
+// 按 columns 字段动态定位 product_version 和 first_date 的索引。
 func (c *Client) GetVersionDateList(ctx context.Context, appID string, platform Platform) ([]VersionDateItem, error) {
 	body := map[string]any{
 		"appId":      appID,
 		"platformId": int(platform),
 	}
 
-	// 该接口返回 {"columns": ["version","date"], "values": [["1.0","20260101"], ...]}
-	// 需要手动解包 values 列表为 VersionDateItem
 	var raw struct {
 		Columns []string   `json:"columns"`
 		Values  [][]string `json:"values"`
@@ -49,12 +50,27 @@ func (c *Client) GetVersionDateList(ctx context.Context, appID string, platform 
 		return nil, err
 	}
 
+	// 按 columns 动态定位 product_version / first_date 列索引
+	versionIdx, dateIdx := -1, -1
+	for i, col := range raw.Columns {
+		switch col {
+		case "product_version", "version":
+			versionIdx = i
+		case "first_date", "date":
+			dateIdx = i
+		}
+	}
+	if versionIdx < 0 || dateIdx < 0 {
+		// 兜底：假设两列顺序为 [version, date]
+		versionIdx, dateIdx = 0, 1
+	}
+
 	items := make([]VersionDateItem, 0, len(raw.Values))
 	for _, row := range raw.Values {
-		if len(row) >= 2 {
+		if len(row) > versionIdx && len(row) > dateIdx {
 			items = append(items, VersionDateItem{
-				Version: row[0],
-				Date:    row[1],
+				Version: row[versionIdx],
+				Date:    row[dateIdx],
 			})
 		}
 	}
