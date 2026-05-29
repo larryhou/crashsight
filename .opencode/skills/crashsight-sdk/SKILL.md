@@ -75,11 +75,21 @@ module github.com/larryhou/crashsight
 ### 3.1 Client — 并发安全
 
 ```go
+type Config struct {
+    UserID   string
+    APIKey   string
+    AppID    string
+    Platform Platform
+    Region   Region
+}
+
 type Client struct {
-    userID  string
-    apiKey  string
-    baseURL string       // 初始化后只读
-    http    *http.Client // 内置连接池，并发安全
+    userID   string
+    apiKey   string
+    appID    string
+    platform Platform
+    baseURL  string
+    http     *http.Client
 }
 ```
 
@@ -90,8 +100,13 @@ type Client struct {
 ### 3.2 函数式选项（ClientOption）
 
 ```go
-client := crashsight.NewClient(userID, apiKey,
-    crashsight.WithRegion(crashsight.RegionCN),   // 默认，可省略
+client := crashsight.NewClient(crashsight.Config{
+    UserID:   userID,
+    APIKey:   apiKey,
+    AppID:    appID,
+    Platform: crashsight.PlatformPC,
+    Region:   crashsight.RegionCN,
+}, crashsight.WithTimeout(60*time.Second)),   // 默认，可省略
     crashsight.WithTimeout(60*time.Second),
     crashsight.WithHTTPClient(customHC),           // 用于测试 mock
 )
@@ -99,7 +114,6 @@ client := crashsight.NewClient(userID, apiKey,
 
 | 选项 | 说明 | 默认值 |
 |---|---|---|
-| `WithRegion(r)` | 切换部署区域（CN/SG） | `RegionCN` |
 | `WithBaseURL(url)` | 自定义 URL，覆盖 Region | — |
 | `WithTimeout(d)` | 请求超时 | `30s` |
 | `WithHTTPClient(hc)` | 替换底层 HTTP 客户端 | 内置 |
@@ -111,17 +125,15 @@ client := crashsight.NewClient(userID, apiKey,
 ```go
 func (c *Client) XxxMethod(
     ctx context.Context,          // 1. 总是第一个参数
-    appID string,                 // 2. 必填业务参数直接列出
-    platform Platform,            // 3. 平台类型（强类型枚举）
-    p XxxParams,                  // 4. 可选/多参数通过 XxxParams 结构体传递
+    p XxxParams,                  // 2. 业务参数通过 XxxParams 结构体传递
 ) (*XxxResponse, error)
 ```
 
 **简单方法（≤3个参数）** 直接平铺，不用 Params 结构体：
 
 ```go
-func (c *Client) GetIssueInfo(ctx context.Context, appID string, platform Platform, issueID string) (*IssueInfo, error)
-func (c *Client) AddIssueTag(ctx context.Context, appID string, platform Platform, issueID, tagName string) error
+func (c *Client) GetIssueInfo(ctx context.Context, issueID string) (*IssueInfo, error)
+func (c *Client) AddIssueTag(ctx context.Context, issueID, tagName string) error
 ```
 
 ### 3.4 鉴权流程
@@ -133,7 +145,7 @@ sequenceDiagram
     participant Auth as auth.go
     participant Server as CrashSight 服务端
 
-    App->>Client: GetTopIssues(ctx, appID, platform, params)
+    App->>Client: GetTopIssues(ctx, params)
     Client->>Auth: buildAuthParams(userID, apiKey)
     Auth->>Auth: ts = time.Now().Unix()
     Auth->>Auth: msg = userID + "_" + ts
@@ -366,7 +378,7 @@ mindmap
 
 | 方法 | 接口 | 说明 |
 |---|---|---|
-| `GetIssueList` | `POST /queryIssueList` | `GetIssueListParams{ExceptionTypeList, Rows, SortField, Status, Version}` |
+| `GetIssueList` | `POST /queryIssueList` | `GetIssueListParams{ExceptionTypeList, Rows, Start, SortField, Status, Version}` |
 | `GetTopIssues` | `POST /getTopIssueEx` | `GetTopIssuesParams{MinDate, MaxDate, VersionList, Limit}` |
 | `GetIssueInfo` | `POST /issueInfo` | 单个 issue 详情 |
 | `GetIssueNotes` | `GET /noteList/...` | `crashDataType` 默认 `"undefined"` |
@@ -397,7 +409,7 @@ mindmap
 const pageSize = 100
 start := 0
 for {
-    resp, _ := client.GetCrashList(ctx, appID, platform, crashsight.GetCrashListParams{
+    resp, _ := client.GetCrashList(ctx, crashsight.GetCrashListParams{
         IssueID: issueID, Start: start, Rows: pageSize,
     })
     for _, crashID := range resp.CrashIDList {
@@ -435,21 +447,21 @@ sequenceDiagram
     participant SDK as crashsight SDK
     participant API as CrashSight API
 
-    App->>SDK: GetTopIssues(minDate, maxDate, limit=1)
+    App->>SDK: GetTopIssues(params)
     SDK->>API: POST /getTopIssueEx
     API-->>SDK: {topIssueList:[{issueId, crashNum,...}]}
     SDK-->>App: *TopIssuesResponse
 
     App->>App: issueID = resp.TopIssueList[0].IssueID
 
-    App->>SDK: GetLastCrash(issueID)
+    App->>SDK: GetLastCrash(ctx, issueID)
     SDK->>API: POST /lastCrashInfo
     API-->>SDK: {crashId, productVersion, osVersion,...}
     SDK-->>App: *LastCrashResponse
 
     App->>App: crashHash = CrashIDToHash(last.CrashID)
 
-    App->>SDK: GetCrashDoc(crashHash, GetCrashDocParams{})
+    App->>SDK: GetCrashDoc(ctx, crashHash, GetCrashDocParams{})
     SDK->>API: POST /crashDoc
     API-->>SDK: {crashMap:{callStack, keyStack,...}, detailMap:{...}}
     SDK-->>App: *CrashDocResponse
@@ -476,7 +488,7 @@ sequenceDiagram
 
 ```go
 // OOM 分析
-client.QueryOOMList(ctx, appID, QueryOOMListParams{
+client.QueryOOMList(ctx, QueryOOMListParams{
     Limit: 20,
     SearchConditionGroup: SearchConditionGroup{
         Conditions: []SearchCondition{{
@@ -488,18 +500,18 @@ client.QueryOOMList(ctx, appID, QueryOOMListParams{
 })
 
 // 附件下载（attachmentFilenameList 为空时静默返回空列表）
-client.FetchCrashAttachments(ctx, appID, FetchCrashAttachmentsParams{
+client.FetchCrashAttachments(ctx, FetchCrashAttachmentsParams{
     CrashIDList:            []string{crashID},
     AttachmentFilenameList: []string{"SDK_LOG", "anrMessage.txt"},
 })
 
 // 元数据：版本/标签/处理人列表
-client.GetSelectorData(ctx, appID, platform, GetSelectorDataParams{
+client.GetSelectorData(ctx, GetSelectorDataParams{
     Types: "version,tag,member",  // 默认全部
 })
 
 // 版本首次出现日期
-client.GetVersionDateList(ctx, appID, platform)
+client.GetVersionDateList(ctx)
 ```
 
 ---
@@ -578,18 +590,19 @@ import (
 )
 
 func main() {
-    client := crashsight.NewClient(
-        os.Getenv("CRASHSIGHT_USER_ID"),
-        os.Getenv("CRASHSIGHT_API_KEY"),
-        crashsight.WithRegion(crashsight.RegionCN),
-    )
+    client := crashsight.NewClient(crashsight.Config{
+        UserID:   os.Getenv("CRASHSIGHT_USER_ID"),
+        APIKey:   os.Getenv("CRASHSIGHT_API_KEY"),
+        AppID:    os.Getenv("CRASHSIGHT_APP_ID"),
+        Platform: crashsight.PlatformPC,
+        Region:   crashsight.RegionCN,
+    })
     ctx := context.Background()
-    appID := os.Getenv("CRASHSIGHT_APP_ID")
 
     // 获取最近 7 天趋势
     end := time.Now()
     start := end.AddDate(0, 0, -7)
-    items, err := client.GetTrend(ctx, appID, crashsight.PlatformPC, crashsight.GetTrendParams{
+    items, err := client.GetTrend(ctx, crashsight.GetTrendParams{
         StartDate:     start.Format("20060102"),
         EndDate:       end.Format("20060102"),
         VersionList:   []string{"-1"},
@@ -633,58 +646,22 @@ python3 compare_test.py
 
 **`-days N` 语义：** N 天前到今天，共 N+1 天的累积数据。`-days 0`（默认）= 仅今天。
 
-**流程：**
-1. `GetTopIssues(startDate, endDate)` 拉时间窗口内 TOP 100 issue（1 次请求）
-2. 每个 issue 调 `GetCrashList`（每页 100 条，分页循环），客户端按 `uploadTime[:10]` 匹配日期集合，倒序时末条日期早于 startDate 可提前终止
-3. `crashDatas` 已含所有设备字段，无需 `GetCrashDoc`
+**优化后的流程：**
+1. 循环分页调用 `queryIssueList` 拉取所有问题，直到跨过指定日期。
+2. 将所有 issue 的 ID 按每批 1000 个合批调用 `queryIssueTrend` 精确统计指定窗口期内的实际崩溃量。
+3. 从 `LastMatchedReport` 中抽取最新的硬件崩溃切片数据。
+4. 输出支持 Flat CSV 宽表与开箱即用的 ECharts HTML 交互可视化看板。
 
 ```bash
-# 默认：只看今天，过滤 Physical.RealisticMP / Cloud.RealisticMP，输出 stdout
-go run ./cmd/dailyscan
+# 默认：只看今天，过滤 Physical.RealisticMP / Cloud.RealisticMP，同时输出 JSON / CSV / HTML
+go run ./cmd/dailyscan -out report.json -csv report.csv -html report.html
 
-# 输出到文件
-go run ./cmd/dailyscan -out report.json
-
-# 最近 3 天（2 天前到今天）
-go run ./cmd/dailyscan -days 2 -out report.json
-
-# 自定义版本前缀（可多次指定）
-go run ./cmd/dailyscan -version-prefix Physical.Ma3 -version-prefix Cloud.Ma3
-
-# 调试：只扫描前 N 个 issue，每 issue 最多 M 条 crash
-go run ./cmd/dailyscan -max-issues 5 -rows 200
+# 自定义版本前缀为空（扫描全量），最近 7 天
+go run ./cmd/dailyscan -days 7 -version-prefix "" -html report.html
 ```
 
-**输出 JSON 结构：**
-```json
-{
-  "startDate": "20260526",
-  "endDate": "20260528",
-  "appId": "3f8a39cdee",
-  "platform": "PC",
-  "versionPrefixes": ["Physical.RealisticMP", "Cloud.RealisticMP"],
-  "totalIssue": 100,
-  "totalCrash": 342,
-  "issues": [{
-    "issueId": "878542d1bc9f832123b71910c3df28fa",
-    "exceptionName": "UNREAL_ASSERT_EXCEPTION(0x00004000)",
-    "crashNum": 17,
-    "crashUser": 15,
-    "crashes": [{
-      "crashId": "caaa5a6c270f4c1d97c77f90a8c62737",
-      "uploadTime": "2026-05-28 18:36:11",
-      "appVersion": "Cloud.RealisticMP.2026-05-28.6230498",
-      "gpu": "NVIDIA GeForce RTX 5090 D v2",
-      "gpuDriverVersion": "32.0.15.9579",
-      "cpu": "AMD Ryzen 9 9950X 16-Core Processor",
-      "memoryMB": 128568,
-      "deviceId": "00-ff-34-84-1d-a1",
-      "userId": "Administrator",
-      "osVer": "Microsoft Windows 11(22631)"
-    }]
-  }]
-}
-```
+**输出字段特性：**
+包含了处理人(`Processors`)、当前状态(`Status`)、时间窗口内的真实上报次数(`TrendCrashNum`)、剩余物理内存(`FreeMemoryMB`)、从 reservedMap 中解析提取的总显存与真实显存占用(`VRAMTotalMB`, `VRAMUsedMB`)，以及玩家存活时长(`ElapsedTimeSec`)。
 
 ---
 
