@@ -537,6 +537,8 @@ type CrashData struct {
 	CpuName          string `json:"cpuName"`
 	// MemSize 物理内存总量（字节，字符串形式）
 	MemSize          string `json:"memSize"`
+	// CallStack 完整调用堆栈
+	CallStack        string `json:"callStack"`
 	// 新增维度：可视化和多维度分析所需数据
 	CrashTime        string            `json:"crashTime"`
 	ElapsedTime      int64             `json:"elapsedTime"` // 运行时间（毫秒）
