@@ -185,9 +185,9 @@ func main() {
 		issueIDs = append(issueIDs, issue.IssueID)
 	}
 
-	chunkSize := 50
-	trendStartStr := startDateObj.Format("2006-01-02 00:00:00")
-	trendEndStr := today.Format("2006-01-02 23:59:59")
+	chunkSize := 100 // 官方允许最大 1000，但为防止请求体积过大，设为 100 非常安全
+	trendStartStr := startDateObj.Format("2006-01-02") + " 00:00:00"
+	trendEndStr := today.Format("2006-01-02") + " 23:59:59"
 
 	for i := 0; i < len(issueIDs); i += chunkSize {
 		end := i + chunkSize
