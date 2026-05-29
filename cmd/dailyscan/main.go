@@ -131,10 +131,13 @@ func main() {
 		r = crashsight.RegionSG
 	}
 
-	client := crashsight.NewClient(userID, apiKey, appID, crashsight.PlatformPC,
-		crashsight.WithRegion(r),
-		crashsight.WithTimeout(60*time.Second),
-	)
+	client := crashsight.NewClient(crashsight.Config{
+		UserID:   userID,
+		APIKey:   apiKey,
+		AppID:    appID,
+		Platform: crashsight.PlatformPC,
+		Region:   r,
+	}, crashsight.WithTimeout(60*time.Second))
 	ctx := context.Background()
 
 	today := time.Now()

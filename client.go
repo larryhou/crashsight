@@ -23,6 +23,16 @@ const (
 	mimeJSON          = "application/json"
 )
 
+
+// Config 初始化 Client 的必填配置项。
+type Config struct {
+	UserID   string
+	APIKey   string
+	AppID    string
+	Platform Platform
+	Region   Region // 必填，例如 RegionCN 或 RegionSG
+}
+
 // Client 是 CrashSight OpenAPI 的并发安全客户端。
 //
 // 所有字段在 NewClient 返回后均为只读，无需加锁。
@@ -39,14 +49,7 @@ type Client struct {
 // ClientOption 函数式选项，用于配置 Client。
 type ClientOption func(*Client)
 
-// WithRegion 设置部署区域（默认 RegionCN）。
-func WithRegion(r Region) ClientOption {
-	return func(c *Client) {
-		c.baseURL = r.BaseURL()
-	}
-}
-
-// WithBaseURL 设置自定义基础 URL（覆盖 WithRegion）。
+// WithBaseURL 设置自定义基础 URL（覆盖 Region 默认的 BaseURL）。
 func WithBaseURL(rawURL string) ClientOption {
 	return func(c *Client) {
 		c.baseURL = strings.TrimRight(rawURL, "/")
@@ -69,16 +72,20 @@ func WithHTTPClient(hc *http.Client) ClientOption {
 
 // NewClient 创建一个新的 CrashSight 客户端。
 //
-//	client := crashsight.NewClient("your_user_id", "your_api_key",
-//	    crashsight.WithRegion(crashsight.RegionCN),
-//	)
-func NewClient(userID, apiKey, appID string, platform Platform, opts ...ClientOption) *Client {
+//	client := crashsight.NewClient(crashsight.Config{
+//		UserID:   "your_user_id",
+//		APIKey:   "your_api_key",
+//		AppID:    "your_app_id",
+//		Platform: crashsight.PlatformPC,
+//		Region:   crashsight.RegionCN,
+//	})
+func NewClient(cfg Config, opts ...ClientOption) *Client {
 	c := &Client{
-		userID:   userID,
-		apiKey:   apiKey,
-		appID:    appID,
-		platform: platform,
-		baseURL: RegionCN.BaseURL(),
+		userID:   cfg.UserID,
+		apiKey:   cfg.APIKey,
+		appID:    cfg.AppID,
+		platform: cfg.Platform,
+		baseURL:  cfg.Region.BaseURL(),
 		http: &http.Client{
 			Timeout: defaultTimeout,
 		},

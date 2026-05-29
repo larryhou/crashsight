@@ -41,10 +41,13 @@ func main() {
 
 	platform := sdk.PlatformPC
 
-	client := sdk.NewClient(userID, apiKey, appID, platform,
-		sdk.WithRegion(sdk.Region(region)),
-		sdk.WithTimeout(60*time.Second),
-	)
+	client := sdk.NewClient(sdk.Config{
+		UserID:   userID,
+		APIKey:   apiKey,
+		AppID:    appID,
+		Platform: platform,
+		Region:   sdk.Region(region),
+	}, sdk.WithTimeout(60*time.Second))
 	ctx := context.Background()
 
 	caseName := os.Args[1]

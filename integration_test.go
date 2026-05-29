@@ -44,10 +44,13 @@ func newIntegrationEnv(t *testing.T) *integrationEnv {
 	if region == "" {
 		region = "cn"
 	}
-	client := NewClient(userID, apiKey, appID, PlatformPC,
-		WithRegion(Region(region)),
-		WithTimeout(60*time.Second),
-	)
+	client := NewClient(Config{
+		UserID:   userID,
+		APIKey:   apiKey,
+		AppID:    appID,
+		Platform: PlatformPC,
+		Region:   Region(region),
+	}, WithTimeout(60*time.Second))
 	return &integrationEnv{
 		client:   client,
 		appID:    appID,

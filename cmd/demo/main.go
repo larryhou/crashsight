@@ -24,10 +24,13 @@ func main() {
 		log.Fatal("请设置环境变量 CRASHSIGHT_USER_ID, CRASHSIGHT_API_KEY 和 CRASHSIGHT_APP_ID")
 	}
 
-	client := crashsight.NewClient(userID, apiKey, appID, crashsight.PlatformPC,
-		crashsight.WithRegion(crashsight.RegionCN),
-		crashsight.WithTimeout(30*time.Second),
-	)
+	client := crashsight.NewClient(crashsight.Config{
+		UserID:   userID,
+		APIKey:   apiKey,
+		AppID:    appID,
+		Platform: crashsight.PlatformPC,
+		Region:   crashsight.RegionCN,
+	}, crashsight.WithTimeout(30*time.Second))
 
 	ctx := context.Background()
 	
@@ -142,9 +145,13 @@ func main() {
 	for _, p := range platforms {
 		p := p // capture loop variable
 		go func() {
-			pClient := crashsight.NewClient(userID, apiKey, appID, p,
-				crashsight.WithRegion(crashsight.RegionCN),
-			)
+			pClient := crashsight.NewClient(crashsight.Config{
+				UserID:   userID,
+				APIKey:   apiKey,
+				AppID:    appID,
+				Platform: p,
+				Region:   crashsight.RegionCN,
+			})
 			issues, err := pClient.GetTopIssues(ctx, crashsight.GetTopIssuesParams{
 				MinDate:    endDate,
 				MaxDate:    endDate,

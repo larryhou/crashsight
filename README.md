@@ -63,14 +63,13 @@ import (
 )
 
 func main() {
-    client := crashsight.NewClient(
-        os.Getenv("CRASHSIGHT_USER_ID"),
-        os.Getenv("CRASHSIGHT_API_KEY"),
-        os.Getenv("CRASHSIGHT_APP_ID"),
-        crashsight.PlatformPC,
-        crashsight.WithRegion(crashsight.RegionCN), // default, can be omitted
-        crashsight.WithTimeout(30*time.Second),
-    )
+    client := crashsight.NewClient(crashsight.Config{
+        UserID:   os.Getenv("CRASHSIGHT_USER_ID"),
+        APIKey:   os.Getenv("CRASHSIGHT_API_KEY"),
+        AppID:    os.Getenv("CRASHSIGHT_APP_ID"),
+        Platform: crashsight.PlatformPC,
+        Region:   crashsight.RegionCN,
+    }, crashsight.WithTimeout(30*time.Second))
     _ = client
 }
 ```
@@ -92,12 +91,13 @@ import (
 )
 
 func main() {
-    client := crashsight.NewClient(
-        os.Getenv("CRASHSIGHT_USER_ID"),
-        os.Getenv("CRASHSIGHT_API_KEY"),
-        os.Getenv("CRASHSIGHT_APP_ID"),
-        crashsight.PlatformPC,
-    )
+    client := crashsight.NewClient(crashsight.Config{
+        UserID:   os.Getenv("CRASHSIGHT_USER_ID"),
+        APIKey:   os.Getenv("CRASHSIGHT_API_KEY"),
+        AppID:    os.Getenv("CRASHSIGHT_APP_ID"),
+        Platform: crashsight.PlatformPC,
+        Region:   crashsight.RegionCN,
+    })
     ctx := context.Background()
     appID := os.Getenv("CRASHSIGHT_APP_ID")
 
