@@ -211,8 +211,8 @@ func main() {
 		for _, t := range trends {
 			var totalCrash, totalUser int64
 			for _, pt := range t.TrendList {
-				totalCrash += pt.UploadCount
-				totalUser += pt.ImeiCount
+				totalCrash += pt.CrashNum
+				totalUser += pt.CrashUser
 			}
 			trendMap[t.IssueID] = struct{ Crash, User int64 }{totalCrash, totalUser}
 		}

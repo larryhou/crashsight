@@ -438,9 +438,9 @@ type GetIssueTrendParams struct {
 
 // IssueTrendPoint 趋势数据点。
 type IssueTrendPoint struct {
-	Date        string `json:"date"`
-	UploadCount int64  `json:"uploadCount"`
-	ImeiCount   int64  `json:"imeiCount"`
+	Date      string `json:"date"`
+	CrashNum  int64  `json:"crashNum"`
+	CrashUser int64  `json:"crashUser"`
 }
 
 // IssueTrendItem 单个 issue 的趋势数据。
