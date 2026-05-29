@@ -1086,15 +1086,15 @@ type FetchCrashAttachmentsParams struct {
 
 // AttachmentInfo 单个附件信息。
 type AttachmentInfo struct {
-	DownloadURL  string `json:"downloadUrl"`
-	FileName     string `json:"fileName"`
-	FileSize     int64  `json:"fileSize,omitempty"`
-	ExpireTime   int64  `json:"expireTime,omitempty"`
+	FileName string `json:"fileName"`
+	FileType int    `json:"fileType"`
+	Content  string `json:"content"`
 }
 
 // CrashAttachmentItem 单个 crashId 的附件列表。
 type CrashAttachmentItem struct {
 	CrashID     string           `json:"crashId"`
+	ExpUid      string           `json:"expUid,omitempty"`
 	Attachments []AttachmentInfo `json:"attachments"`
 }
 
