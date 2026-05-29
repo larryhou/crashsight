@@ -59,6 +59,19 @@ type IssueVersionItem struct {
 	SystemExitDeviceCount int64  `json:"systemExitDeviceCount,omitempty"`
 }
 
+type AssigneeItem struct {
+	LocalUserID string `json:"localUserId,omitempty"`
+	Name        string `json:"name,omitempty"`
+	WetestUin   string `json:"wetestUin,omitempty"`
+}
+
+type LastMatchedReport struct {
+	Archived   bool      `json:"archived"`
+	CrashMap   CrashData `json:"crashMap"`
+	Exists     bool      `json:"exists"`
+	WellFormed bool      `json:"wellFormed"`
+}
+
 // IssueItem 问题摘要（TOP 问题列表/问题查询中均使用）。
 type IssueItem struct {
 	AppID                 string             `json:"appId"`
@@ -98,6 +111,20 @@ type IssueItem struct {
 	IssueVersions         []IssueVersionItem `json:"issueVersions,omitempty"`
 	ImeiCount             int64              `json:"imeiCount,omitempty"`
 	Count                 int64              `json:"count,omitempty"`
+	// 以下为 queryIssueList 响应中可能存在的额外字段
+	AssigneeList          []AssigneeItem     `json:"assigneeList,omitempty"`
+	CrossVerStat          int                `json:"crossVerStat,omitempty"`
+	DetailID              string             `json:"detailId,omitempty"`
+	EsCount               int64              `json:"esCount,omitempty"`
+	EsDeviceCount         int64              `json:"esDeviceCount,omitempty"`
+	FirstCrashVersion     string             `json:"firstCrashVersion,omitempty"`
+	IssueExceptionType    int                `json:"issueExceptionType,omitempty"`
+	IssueHash             string             `json:"issueHash,omitempty"`
+	ParentHash            string             `json:"parentHash,omitempty"`
+	SysCount              int64              `json:"sysCount,omitempty"`
+	SysImeiCount          int64              `json:"sysImeiCount,omitempty"`
+	Tag                   []string           `json:"tag,omitempty"`
+	LastMatchedReport     *LastMatchedReport `json:"lastMatchedReport,omitempty"`
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
