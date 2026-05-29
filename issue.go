@@ -31,6 +31,9 @@ func (c *Client) GetIssueList(ctx context.Context, p GetIssueListParams) (*Issue
 		"sortOrder":         sortOrder,
 		"skipQueryHbase":    true,
 	}
+	if p.Start > 0 {
+		body["start"] = p.Start
+	}
 	if p.Status != "" {
 		body["status"] = p.Status
 	}

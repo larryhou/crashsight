@@ -336,6 +336,8 @@ type GetIssueListParams struct {
 	TapdBugStatus string
 	// IssueUploadTimeRelativeMillis 过滤最近 N 毫秒内有上报的问题（0 表示不过滤）。
 	IssueUploadTimeRelativeMillis int64
+	// Start 用于分页，标识起始偏移量（如 0, 20, 40...）
+	Start int
 }
 
 // IssueListResponse GetIssueList 的响应。
