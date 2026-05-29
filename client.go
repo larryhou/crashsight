@@ -28,10 +28,12 @@ const (
 // 所有字段在 NewClient 返回后均为只读，无需加锁。
 // 底层 *http.Client 自带连接池，可安全地跨 goroutine 共享。
 type Client struct {
-	userID  string
-	apiKey  string
-	baseURL string       // 不带尾部斜线
-	http    *http.Client // 并发安全，复用连接池
+	userID   string
+	apiKey   string
+	baseURL  string       // 不带尾部斜线
+	http     *http.Client // 并发安全，复用连接池
+	appID    string
+	platform Platform
 }
 
 // ClientOption 函数式选项，用于配置 Client。
@@ -70,10 +72,12 @@ func WithHTTPClient(hc *http.Client) ClientOption {
 //	client := crashsight.NewClient("your_user_id", "your_api_key",
 //	    crashsight.WithRegion(crashsight.RegionCN),
 //	)
-func NewClient(userID, apiKey string, opts ...ClientOption) *Client {
+func NewClient(userID, apiKey, appID string, platform Platform, opts ...ClientOption) *Client {
 	c := &Client{
-		userID:  userID,
-		apiKey:  apiKey,
+		userID:   userID,
+		apiKey:   apiKey,
+		appID:    appID,
+		platform: platform,
 		baseURL: RegionCN.BaseURL(),
 		http: &http.Client{
 			Timeout: defaultTimeout,

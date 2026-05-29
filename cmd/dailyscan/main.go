@@ -131,7 +131,7 @@ func main() {
 		r = crashsight.RegionSG
 	}
 
-	client := crashsight.NewClient(userID, apiKey,
+	client := crashsight.NewClient(userID, apiKey, appID, crashsight.PlatformPC,
 		crashsight.WithRegion(r),
 		crashsight.WithTimeout(60*time.Second),
 	)
@@ -269,7 +269,7 @@ func fetchLatestIssues(ctx context.Context, client *crashsight.Client, appID str
 	if limit <= 0 {
 		limit = 100 // default reasonable limit if not specified
 	}
-	resp, err := client.GetIssueList(ctx, appID, crashsight.PlatformPC, crashsight.GetIssueListParams{
+	resp, err := client.GetIssueList(ctx, crashsight.GetIssueListParams{
 		ExceptionTypeList:             crashsight.ExceptionTypeCrash,
 		Status:                        "0,2", // 0=Unprocessed, 2=Processing
 		Rows:                          limit,
@@ -298,7 +298,7 @@ func fetchCrashesForIssue(ctx context.Context, client *crashsight.Client, appID,
 	numFound := -1
 
 	for page := 1; ; page++ {
-		resp, err := client.GetCrashList(ctx, appID, crashsight.PlatformPC, crashsight.GetCrashListParams{
+		resp, err := client.GetCrashList(ctx, crashsight.GetCrashListParams{
 			IssueID: issueID,
 			Start:   start,
 			Rows:    pageSize,

@@ -39,12 +39,13 @@ func main() {
 		region = "cn"
 	}
 
-	client := sdk.NewClient(userID, apiKey,
+	platform := sdk.PlatformPC
+
+	client := sdk.NewClient(userID, apiKey, appID, platform,
 		sdk.WithRegion(sdk.Region(region)),
 		sdk.WithTimeout(60*time.Second),
 	)
 	ctx := context.Background()
-	platform := sdk.PlatformPC
 
 	caseName := os.Args[1]
 	args := os.Args[2:]
@@ -55,13 +56,13 @@ func main() {
 	switch caseName {
 
 	case "selector":
-		result, err = client.GetSelectorData(ctx, appID, platform, sdk.GetSelectorDataParams{
+		result, err = client.GetSelectorData(ctx, sdk.GetSelectorDataParams{
 			Types: "version,tag,member,bundle,channel",
 		})
 
 	case "trend":
 		start, end := argDate(args, 0, -7), argDate(args, 1, 0)
-		result, err = client.GetTrend(ctx, appID, platform, sdk.GetTrendParams{
+		result, err = client.GetTrend(ctx, sdk.GetTrendParams{
 			StartDate:     start,
 			EndDate:       end,
 			CrashType:     sdk.CrashTypeCrash,
@@ -71,7 +72,7 @@ func main() {
 
 	case "top_issues":
 		start, end := argDate(args, 0, -7), argDate(args, 1, 0)
-		result, err = client.GetTopIssues(ctx, appID, platform, sdk.GetTopIssuesParams{
+		result, err = client.GetTopIssues(ctx, sdk.GetTopIssuesParams{
 			MinDate:          start,
 			MaxDate:          end,
 			VersionList:      []string{"-1"},
@@ -82,7 +83,7 @@ func main() {
 		})
 
 	case "issue_list":
-		result, err = client.GetIssueList(ctx, appID, platform, sdk.GetIssueListParams{
+		result, err = client.GetIssueList(ctx, sdk.GetIssueListParams{
 			ExceptionTypeList: sdk.ExceptionTypeCrash,
 			Rows:              10,
 			SortField:         "uploadTime",
@@ -91,25 +92,25 @@ func main() {
 
 	case "issue_info":
 		issueID := mustArg(args, 0, "issueId")
-		result, err = client.GetIssueInfo(ctx, appID, platform, issueID)
+		result, err = client.GetIssueInfo(ctx, issueID)
 
 	case "last_crash":
 		issueID := mustArg(args, 0, "issueId")
-		result, err = client.GetLastCrash(ctx, appID, platform, issueID)
+		result, err = client.GetLastCrash(ctx, issueID)
 
 	case "crash_doc":
 		crashID := mustArg(args, 0, "crashId")
 		crashHash := sdk.CrashIDToHash(crashID)
-		result, err = client.GetCrashDoc(ctx, appID, platform, crashHash, sdk.GetCrashDocParams{})
+		result, err = client.GetCrashDoc(ctx, crashHash, sdk.GetCrashDocParams{})
 
 	case "crash_detail":
 		crashID := mustArg(args, 0, "crashId")
 		crashHash := sdk.CrashIDToHash(crashID)
-		result, err = client.GetCrashDetail(ctx, appID, platform, crashHash)
+		result, err = client.GetCrashDetail(ctx, crashHash)
 
 	case "daily_summary":
 		start, end := argDate(args, 0, -7), argDate(args, 1, 0)
-		result, err = client.GetDailySummary(ctx, appID, platform, sdk.GetDailySummaryParams{
+		result, err = client.GetDailySummary(ctx, sdk.GetDailySummaryParams{
 			StartDate: start,
 			EndDate:   end,
 		})
@@ -117,18 +118,18 @@ func main() {
 	case "hourly_trend":
 		startHour := argHour(args, 0, -24)
 		endHour := argHour(args, 1, 0)
-		result, err = client.GetHourlyTrend(ctx, appID, platform, sdk.GetHourlyTrendParams{
+		result, err = client.GetHourlyTrend(ctx, sdk.GetHourlyTrendParams{
 			StartHour:     startHour,
 			EndHour:       endHour,
 			MergeVersions: true,
 		})
 
 	case "version_date_list":
-		result, err = client.GetVersionDateList(ctx, appID, platform)
+		result, err = client.GetVersionDateList(ctx, )
 
 	case "issue_notes":
 		issueID := mustArg(args, 0, "issueId")
-		result, err = client.GetIssueNotes(ctx, appID, platform, issueID, "")
+		result, err = client.GetIssueNotes(ctx, issueID, "")
 
 	default:
 		fmt.Fprintf(os.Stderr, "unknown case: %s\n", caseName)

@@ -17,16 +17,16 @@ import (
 //
 // crashDatas 中已包含 gpu/gpuDriverVersion/cpuName/memSize 等完整设备字段，
 // 无需再调 GetCrashDoc。
-func (c *Client) GetCrashList(ctx context.Context, appID string, platform Platform, p GetCrashListParams) (*CrashListResponse, error) {
+func (c *Client) GetCrashList(ctx context.Context, p GetCrashListParams) (*CrashListResponse, error) {
 	rows := intDefault(p.Rows, 100)
 	if rows > 100 {
 		rows = 100
 	}
 	exType := strDefault(p.ExceptionTypeList, ExceptionTypeCrash)
-	pid := int(platform)
+	pid := int(c.platform)
 
 	body := map[string]any{
-		"appId":             appID,
+		"appId":             c.appID,
 		"crashDataType":     "undefined",
 		"start":             p.Start,
 		"searchType":        "detail",
@@ -50,10 +50,10 @@ func (c *Client) GetCrashList(ctx context.Context, appID string, platform Platfo
 // 对应接口: POST /uniform/openapi/lastCrashInfo
 //
 // 注意: platformId 该接口要求字符串类型，SDK 内部已处理。
-func (c *Client) GetLastCrash(ctx context.Context, appID string, platform Platform, issueID string) (*LastCrashResponse, error) {
+func (c *Client) GetLastCrash(ctx context.Context, issueID string) (*LastCrashResponse, error) {
 	body := map[string]any{
-		"appId":         appID,
-		"platformId":    strconv.Itoa(int(platform)), // 字符串
+		"appId":         c.appID,
+		"platformId":    strconv.Itoa(int(c.platform)), // 字符串
 		"issues":        issueID,
 		"crashDataType": "undefined",
 	}
@@ -70,10 +70,10 @@ func (c *Client) GetLastCrash(ctx context.Context, appID string, platform Platfo
 // 对应接口: POST /uniform/openapi/appDetailCrash
 //
 // 注意: platformId 该接口要求字符串类型，SDK 内部已处理。
-func (c *Client) GetCrashDetail(ctx context.Context, appID string, platform Platform, crashHash string) (*CrashDetailResponse, error) {
+func (c *Client) GetCrashDetail(ctx context.Context, crashHash string) (*CrashDetailResponse, error) {
 	body := map[string]any{
-		"appId":      appID,
-		"platformId": strconv.Itoa(int(platform)), // 字符串
+		"appId":      c.appID,
+		"platformId": strconv.Itoa(int(c.platform)), // 字符串
 		"crashHash":  crashHash,
 	}
 
@@ -90,10 +90,10 @@ func (c *Client) GetCrashDetail(ctx context.Context, appID string, platform Plat
 //
 // p.LogType 仅 PC 有效：""（默认）/"interface"/"file"/"all"。
 // crashHash 格式: 将 crashId 每 2 位插入 ":"，可使用 CrashIDToHash 辅助函数生成。
-func (c *Client) GetCrashDoc(ctx context.Context, appID string, platform Platform, crashHash string, p GetCrashDocParams) (*CrashDocResponse, error) {
+func (c *Client) GetCrashDoc(ctx context.Context, crashHash string, p GetCrashDocParams) (*CrashDocResponse, error) {
 	body := map[string]any{
-		"appId":             appID,
-		"platformId":        strconv.Itoa(int(platform)), // 字符串
+		"appId":             c.appID,
+		"platformId":        strconv.Itoa(int(c.platform)), // 字符串
 		"crashHash":         crashHash,
 		"logtype":           p.LogType,
 		"needQueryCustomKv": p.NeedCustomKV,
@@ -111,8 +111,8 @@ func (c *Client) GetCrashDoc(ctx context.Context, appID string, platform Platfor
 // 对应接口: POST /uniform/openapi/appDetailCrash
 //
 // 返回结果中筛选 FileName 为 "anrMessage.txt" 或 "trace.zip" 的条目。
-func (c *Client) GetANRMessage(ctx context.Context, appID string, platform Platform, crashHash string) ([]AttachItem, error) {
-	detail, err := c.GetCrashDetail(ctx, appID, platform, crashHash)
+func (c *Client) GetANRMessage(ctx context.Context, crashHash string) ([]AttachItem, error) {
+	detail, err := c.GetCrashDetail(ctx, crashHash)
 	if err != nil {
 		return nil, fmt.Errorf("GetANRMessage: %w", err)
 	}
@@ -128,10 +128,10 @@ func (c *Client) GetANRMessage(ctx context.Context, appID string, platform Platf
 // QueryCrashList 根据筛选条件拉取崩溃列表详情。
 //
 // 对应接口: POST /uniform/openapi/queryCrashList
-func (c *Client) QueryCrashList(ctx context.Context, appID string, platform Platform, p QueryCrashListParams) (map[string]any, error) {
+func (c *Client) QueryCrashList(ctx context.Context, p QueryCrashListParams) (map[string]any, error) {
 	body := map[string]any{
-		"appId":      appID,
-		"platformId": int(platform),
+		"appId":      c.appID,
+		"platformId": int(c.platform),
 		"type":       string(crashTypeDefault(p.CrashType, CrashTypeCrash)),
 		"start":      p.Start,
 		"rows":       intDefault(p.Rows, 50),
@@ -170,10 +170,10 @@ func (c *Client) QueryCrashList(ctx context.Context, appID string, platform Plat
 // 对应接口: POST /uniform/openapi/advancedSearchEx
 //
 // p.StartHour/EndHour 格式: YYYYMMDDHH
-func (c *Client) AdvancedSearch(ctx context.Context, appID string, platform Platform, p AdvancedSearchParams) (map[string]any, error) {
+func (c *Client) AdvancedSearch(ctx context.Context, p AdvancedSearchParams) (map[string]any, error) {
 	body := map[string]any{
-		"appId":      appID,
-		"platformId": int(platform),
+		"appId":      c.appID,
+		"platformId": int(c.platform),
 		"startHour":  p.StartHour,
 		"endHour":    p.EndHour,
 		"type":       string(crashTypeDefault(p.CrashType, CrashTypeCrash)),
@@ -194,18 +194,18 @@ func (c *Client) AdvancedSearch(ctx context.Context, appID string, platform Plat
 // 对应接口: POST /uniform/openapi/getStackCrashStat/platformId/{pid}
 //
 // p.KeyName 支持 * 通配符。
-func (c *Client) GetStackCrashStat(ctx context.Context, appID string, platform Platform, p GetStackCrashStatParams) (*StackCrashStatResponse, error) {
-	pid := int(platform)
+func (c *Client) GetStackCrashStat(ctx context.Context, p GetStackCrashStatParams) (*StackCrashStatResponse, error) {
+	pid := int(c.platform)
 	path := apiPathPrefix + "/getStackCrashStat/platformId/" + strconv.Itoa(pid)
 	body := map[string]any{
 		"requestid": newFSN(),
 		"stime":     p.StartTime,
 		"etime":     p.EndTime,
 		"source":    0,
-		"appId":     appID,
+		"appId":     c.appID,
 		"params": map[string]any{
 			"keyName": p.KeyName,
-			"appId":   appID,
+			"appId":   c.appID,
 		},
 		"limit": p.Limit,
 		"type":  "pretty",
@@ -220,9 +220,9 @@ func (c *Client) GetStackCrashStat(ctx context.Context, appID string, platform P
 
 // GetCrashInfo 通过 GET 接口获取 issue 备注（旧版路径参数风格，内部复用）。
 // 对外暴露 GetCrashDoc / GetCrashDetail 即可，此为内部辅助方法示例。
-func (c *Client) getCrashDocByGet(ctx context.Context, appID string, platform Platform, crashHash string) (*CrashDocResponse, error) {
-	path := apiPathPrefix + "/crashDoc/appId/" + appID +
-		"/platformId/" + strconv.Itoa(int(platform)) +
+func (c *Client) getCrashDocByGet(ctx context.Context, crashHash string) (*CrashDocResponse, error) {
+	path := apiPathPrefix + "/crashDoc/appId/" + c.appID +
+		"/platformId/" + strconv.Itoa(int(c.platform)) +
 		"/crashHash/" + crashHash
 	q := url.Values{"fsn": {newFSN()}}
 

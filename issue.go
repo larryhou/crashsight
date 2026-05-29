@@ -14,15 +14,15 @@ import (
 // GetIssueList 获取崩溃/ANR/错误分析列表。
 //
 // 对应接口: POST /uniform/openapi/queryIssueList
-func (c *Client) GetIssueList(ctx context.Context, appID string, platform Platform, p GetIssueListParams) (*IssueListResponse, error) {
+func (c *Client) GetIssueList(ctx context.Context, p GetIssueListParams) (*IssueListResponse, error) {
 	exType := strDefault(p.ExceptionTypeList, ExceptionTypeCrash)
 	rows := intDefault(p.Rows, 20)
 	sortField := strDefault(p.SortField, "uploadTime")
 	sortOrder := strDefault(p.SortOrder, "desc")
-	pid := int(platform)
+	pid := int(c.platform)
 
 	body := map[string]any{
-		"appId":             appID,
+		"appId":             c.appID,
 		"platformId":        pid,
 		"pid":               strconv.Itoa(pid),
 		"exceptionTypeList": exType,
@@ -54,7 +54,7 @@ func (c *Client) GetIssueList(ctx context.Context, appID string, platform Platfo
 // GetTopIssues 获取 TOP 问题列表。
 //
 // 对应接口: POST /uniform/openapi/getTopIssueEx
-func (c *Client) GetTopIssues(ctx context.Context, appID string, platform Platform, p GetTopIssuesParams) (*TopIssuesResponse, error) {
+func (c *Client) GetTopIssues(ctx context.Context, p GetTopIssuesParams) (*TopIssuesResponse, error) {
 	versionList := stringsDefault(p.VersionList, []string{"-1"})
 	limit := intDefault(p.Limit, 20)
 	dataType := p.TopIssueDataType
@@ -67,8 +67,8 @@ func (c *Client) GetTopIssues(ctx context.Context, appID string, platform Platfo
 	}
 
 	body := map[string]any{
-		"appId":      appID,
-		"platformId": int(platform),
+		"appId":      c.appID,
+		"platformId": int(c.platform),
 		"version":    version,
 		"date":       p.MinDate,
 		"minDate":    p.MinDate,
@@ -97,10 +97,10 @@ func (c *Client) GetTopIssues(ctx context.Context, appID string, platform Platfo
 // 对应接口: POST /uniform/openapi/issueInfo
 //
 // 注意: platformId 需传字符串类型，SDK 内部已处理。
-func (c *Client) GetIssueInfo(ctx context.Context, appID string, platform Platform, issueID string) (*IssueInfo, error) {
+func (c *Client) GetIssueInfo(ctx context.Context, issueID string) (*IssueInfo, error) {
 	body := map[string]any{
-		"appId":      appID,
-		"platformId": strconv.Itoa(int(platform)), // 该接口要求字符串类型
+		"appId":      c.appID,
+		"platformId": strconv.Itoa(int(c.platform)), // 该接口要求字符串类型
 		"issueId":    issueID,
 	}
 
@@ -116,9 +116,9 @@ func (c *Client) GetIssueInfo(ctx context.Context, appID string, platform Platfo
 // 对应接口: GET /uniform/openapi/noteList/appId/{appId}/platformId/{pid}/issueId/{issueId}
 //
 // crashDataType 通常传 "undefined"，留空时使用该默认值。
-func (c *Client) GetIssueNotes(ctx context.Context, appID string, platform Platform, issueID string, crashDataType string) ([]IssueNote, error) {
-	path := apiPathPrefix + "/noteList/appId/" + appID +
-		"/platformId/" + strconv.Itoa(int(platform)) +
+func (c *Client) GetIssueNotes(ctx context.Context, issueID string, crashDataType string) ([]IssueNote, error) {
+	path := apiPathPrefix + "/noteList/appId/" + c.appID +
+		"/platformId/" + strconv.Itoa(int(c.platform)) +
 		"/issueId/" + issueID
 	query := url.Values{
 		"crashDataType": {strDefault(crashDataType, "undefined")},
@@ -136,7 +136,7 @@ func (c *Client) GetIssueNotes(ctx context.Context, appID string, platform Platf
 // 对应接口: POST /uniform/openapi/queryIssueTrend
 //
 // p.MinDate/MaxDate 格式: YYYY-MM-DD HH:MM:SS
-func (c *Client) GetIssueTrend(ctx context.Context, appID string, platform Platform, p GetIssueTrendParams) ([]IssueTrendItem, error) {
+func (c *Client) GetIssueTrend(ctx context.Context, p GetIssueTrendParams) ([]IssueTrendItem, error) {
 	granularity := p.GranularityUnit
 	if granularity == "" {
 		granularity = GranularityDay
@@ -144,8 +144,8 @@ func (c *Client) GetIssueTrend(ctx context.Context, appID string, platform Platf
 	version := strDefault(p.Version, "-1")
 
 	body := map[string]any{
-		"appId":           appID,
-		"platformId":      int(platform),
+		"appId":           c.appID,
+		"platformId":      int(c.platform),
 		"issueIds":        p.IssueIDs,
 		"granularityUnit": string(granularity),
 		"minDate":         p.MinDate,
@@ -163,11 +163,11 @@ func (c *Client) GetIssueTrend(ctx context.Context, appID string, platform Platf
 // UpdateIssueStatus 更新问题状态（处理/未处理/处理中）。
 //
 // 对应接口: POST /uniform/openapi/updateIssueStatus
-func (c *Client) UpdateIssueStatus(ctx context.Context, appID string, platform Platform, p UpdateIssueStatusParams) error {
+func (c *Client) UpdateIssueStatus(ctx context.Context, p UpdateIssueStatusParams) error {
 	operatorID := strDefault(p.OperatorUserID, c.userID)
 	body := map[string]any{
-		"appId":      appID,
-		"platformId": int(platform),
+		"appId":      c.appID,
+		"platformId": int(c.platform),
 		"issueIds":   p.IssueIDs,
 		"status":     int(p.Status),
 		"processors": p.Processors,
@@ -180,12 +180,12 @@ func (c *Client) UpdateIssueStatus(ctx context.Context, appID string, platform P
 // AddIssueNote 为问题添加备注。
 //
 // 对应接口: POST /uniform/openapi/addIssueNote
-func (c *Client) AddIssueNote(ctx context.Context, appID string, platform Platform, p AddIssueNoteParams) error {
+func (c *Client) AddIssueNote(ctx context.Context, p AddIssueNoteParams) error {
 	uid := strDefault(p.OperatorUserID, c.userID)
 	now := time.Now().Format("2006-01-02 15:04:05")
 	body := map[string]any{
-		"appId":      appID,
-		"platformId": int(platform),
+		"appId":      c.appID,
+		"platformId": int(c.platform),
 		"issueStatus": 3,
 		"issueIds":   p.IssueID,
 		"note":       p.Note,
@@ -199,10 +199,10 @@ func (c *Client) AddIssueNote(ctx context.Context, appID string, platform Platfo
 // AddIssueTag 为问题设置标签。
 //
 // 对应接口: POST /uniform/openapi/addTag
-func (c *Client) AddIssueTag(ctx context.Context, appID string, platform Platform, issueID, tagName string) error {
+func (c *Client) AddIssueTag(ctx context.Context, issueID, tagName string) error {
 	body := map[string]any{
-		"appId":      appID,
-		"platformId": int(platform),
+		"appId":      c.appID,
+		"platformId": int(c.platform),
 		"issueId":    issueID,
 		"tagName":    tagName,
 	}
@@ -212,10 +212,10 @@ func (c *Client) AddIssueTag(ctx context.Context, appID string, platform Platfor
 // UpsertBugs 创建或更新关联的缺陷单（TAPD 等）。
 //
 // 对应接口: POST /uniform/openapi/upsertBugs
-func (c *Client) UpsertBugs(ctx context.Context, appID string, platform Platform, p UpsertBugsParams) (map[string]any, error) {
+func (c *Client) UpsertBugs(ctx context.Context, p UpsertBugsParams) (map[string]any, error) {
 	body := map[string]any{
-		"appId":      appID,
-		"platformId": int(platform),
+		"appId":      c.appID,
+		"platformId": int(c.platform),
 		"issueId":    p.IssueID,
 	}
 	for k, v := range p.Extra {
@@ -232,10 +232,10 @@ func (c *Client) UpsertBugs(ctx context.Context, appID string, platform Platform
 // QueryBugs 查询缺陷单详情。
 //
 // 对应接口: POST /uniform/openapi/queryBugs
-func (c *Client) QueryBugs(ctx context.Context, appID string, platform Platform, bugInfos []BugInfoParam) (map[string]any, error) {
+func (c *Client) QueryBugs(ctx context.Context, bugInfos []BugInfoParam) (map[string]any, error) {
 	body := map[string]any{
-		"appId":      appID,
-		"platformId": int(platform),
+		"appId":      c.appID,
+		"platformId": int(c.platform),
 		"bugInfos":   bugInfos,
 	}
 
@@ -249,10 +249,10 @@ func (c *Client) QueryBugs(ctx context.Context, appID string, platform Platform,
 // BindBugs 绑定已有缺陷单到问题。
 //
 // 对应接口: POST /uniform/openapi/bindBugs
-func (c *Client) BindBugs(ctx context.Context, appID string, platform Platform, p BindBugsParams) error {
+func (c *Client) BindBugs(ctx context.Context, p BindBugsParams) error {
 	body := map[string]any{
-		"appId":      appID,
-		"platformId": int(platform),
+		"appId":      c.appID,
+		"platformId": int(c.platform),
 		"issueId":    p.IssueID,
 		"bugId":      p.BugID,
 		"bugUrl":     p.BugURL,

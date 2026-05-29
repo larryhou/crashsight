@@ -24,10 +24,10 @@ import "context"
 //	        },
 //	    },
 //	})
-func (c *Client) QueryOOMList(ctx context.Context, appID string, p QueryOOMListParams) (*OOMListResponse, error) {
+func (c *Client) QueryOOMList(ctx context.Context, p QueryOOMListParams) (*OOMListResponse, error) {
 	limit := intDefault(p.Limit, 10)
 	body := map[string]any{
-		"appId": appID,
+		"appId": c.appID,
 		"limit": limit,
 		"search": map[string]any{
 			"searchConditionGroup": p.SearchConditionGroup,

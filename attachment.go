@@ -23,14 +23,14 @@ import (
 //
 // 当指定的附件不存在时，服务端返回 "attachmentFilenameList is empty" 错误，
 // SDK 将其静默处理并返回空列表（不返回 error）。
-func (c *Client) FetchCrashAttachments(ctx context.Context, appID string, p FetchCrashAttachmentsParams) (*FetchCrashAttachmentsResponse, error) {
+func (c *Client) FetchCrashAttachments(ctx context.Context, p FetchCrashAttachmentsParams) (*FetchCrashAttachmentsResponse, error) {
 	filenames := p.AttachmentFilenameList
 	if len(filenames) == 0 {
 		filenames = []string{"SDK_LOG"}
 	}
 
 	body := map[string]any{
-		"appId":                  appID,
+		"appId":                  c.appID,
 		"crashIdList":            p.CrashIDList,
 		"attachmentFilenameList": filenames,
 	}

@@ -24,7 +24,7 @@ func main() {
 		log.Fatal("请设置环境变量 CRASHSIGHT_USER_ID, CRASHSIGHT_API_KEY 和 CRASHSIGHT_APP_ID")
 	}
 
-	client := crashsight.NewClient(userID, apiKey,
+	client := crashsight.NewClient(userID, apiKey, appID, crashsight.PlatformPC,
 		crashsight.WithRegion(crashsight.RegionCN),
 		crashsight.WithTimeout(30*time.Second),
 	)
@@ -38,7 +38,7 @@ func main() {
 
 	// ── 示例 1: 获取每日崩溃趋势 ─────────────────────────────────
 	fmt.Println("=== 每日崩溃趋势 ===")
-	trends, err := client.GetTrend(ctx, appID, crashsight.PlatformPC, crashsight.GetTrendParams{
+	trends, err := client.GetTrend(ctx, crashsight.GetTrendParams{
 		StartDate:     startDate,
 		EndDate:       endDate,
 		CrashType:     crashsight.CrashTypeCrash,
@@ -53,7 +53,7 @@ func main() {
 
 	// ── 示例 2: 获取 TOP 问题列表 ─────────────────────────────────
 	fmt.Println("\n=== TOP 问题列表 ===")
-	topIssues, err := client.GetTopIssues(ctx, appID, crashsight.PlatformPC, crashsight.GetTopIssuesParams{
+	topIssues, err := client.GetTopIssues(ctx, crashsight.GetTopIssuesParams{
 		MinDate:          startDate,
 		MaxDate:          endDate,
 		VersionList:      []string{"-1"},
@@ -80,7 +80,7 @@ func main() {
 	if issueID == "" {
 		fmt.Println("未找到可用的 IssueID，跳过该示例（可设置 CRASHSIGHT_ISSUE_ID）")
 	} else {
-		issueInfo, err := client.GetIssueInfo(ctx, appID, crashsight.PlatformPC, issueID)
+		issueInfo, err := client.GetIssueInfo(ctx, issueID)
 		if err != nil {
 			handleError("GetIssueInfo", err)
 		} else {
@@ -89,7 +89,7 @@ func main() {
 	
 		time.Sleep(2 * time.Second) // 遵守 25 次/分钟限速
 	
-		lastCrash, err := client.GetLastCrash(ctx, appID, crashsight.PlatformPC, issueID)
+		lastCrash, err := client.GetLastCrash(ctx, issueID)
 		if err != nil {
 			handleError("GetLastCrash", err)
 		} else if lastCrash != nil {
@@ -98,7 +98,7 @@ func main() {
 			time.Sleep(2 * time.Second)
 		
 			crashHash := crashsight.CrashIDToHash(lastCrash.CrashID)
-			doc, err := client.GetCrashDoc(ctx, appID, crashsight.PlatformPC, crashHash, crashsight.GetCrashDocParams{})
+			doc, err := client.GetCrashDoc(ctx, crashHash, crashsight.GetCrashDocParams{})
 			if err != nil {
 				handleError("GetCrashDoc", err)
 			} else {
@@ -109,7 +109,7 @@ func main() {
 
 	// ── 示例 4: 获取选择器元数据（版本列表等）───────────────────────
 	fmt.Println("\n=== 选择器数据 ===")
-	selector, err := client.GetSelectorData(ctx, appID, crashsight.PlatformPC, crashsight.GetSelectorDataParams{
+	selector, err := client.GetSelectorData(ctx, crashsight.GetSelectorDataParams{
 		Types: "version,tag",
 	})
 	if err != nil {
@@ -142,7 +142,10 @@ func main() {
 	for _, p := range platforms {
 		p := p // capture loop variable
 		go func() {
-			issues, err := client.GetTopIssues(ctx, appID, p, crashsight.GetTopIssuesParams{
+			pClient := crashsight.NewClient(userID, apiKey, appID, p,
+				crashsight.WithRegion(crashsight.RegionCN),
+			)
+			issues, err := pClient.GetTopIssues(ctx, crashsight.GetTopIssuesParams{
 				MinDate:    endDate,
 				MaxDate:    endDate,
 				Limit:      5,
@@ -167,7 +170,7 @@ func main() {
 
 	// ── 示例 6: 错误处理 ──────────────────────────────────────────
 	fmt.Println("\n=== 错误处理示例 ===")
-	_, err = client.GetIssueInfo(ctx, appID, crashsight.PlatformPC, "invalid_issue_id")
+	_, err = client.GetIssueInfo(ctx, "invalid_issue_id")
 	if err != nil {
 		var apiErr *crashsight.APIError
 		var authErr *crashsight.AuthError

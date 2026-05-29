@@ -66,6 +66,8 @@ func main() {
     client := crashsight.NewClient(
         os.Getenv("CRASHSIGHT_USER_ID"),
         os.Getenv("CRASHSIGHT_API_KEY"),
+        os.Getenv("CRASHSIGHT_APP_ID"),
+        crashsight.PlatformPC,
         crashsight.WithRegion(crashsight.RegionCN), // default, can be omitted
         crashsight.WithTimeout(30*time.Second),
     )
@@ -93,6 +95,8 @@ func main() {
     client := crashsight.NewClient(
         os.Getenv("CRASHSIGHT_USER_ID"),
         os.Getenv("CRASHSIGHT_API_KEY"),
+        os.Getenv("CRASHSIGHT_APP_ID"),
+        crashsight.PlatformPC,
     )
     ctx := context.Background()
     appID := os.Getenv("CRASHSIGHT_APP_ID")

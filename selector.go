@@ -15,11 +15,11 @@ import (
 //
 // p.Types 支持 "version"、"member"、"bundle"、"tag"、"channel" 的逗号组合，
 // 默认返回全部类型。
-func (c *Client) GetSelectorData(ctx context.Context, appID string, platform Platform, p GetSelectorDataParams) (*SelectorDataResponse, error) {
+func (c *Client) GetSelectorData(ctx context.Context, p GetSelectorDataParams) (*SelectorDataResponse, error) {
 	types := strDefault(p.Types, "version,member,bundle,tag,channel")
 	body := map[string]any{
-		"appId": appID,
-		"pid":   strconv.Itoa(int(platform)),
+		"appId": c.appID,
+		"pid":   strconv.Itoa(int(c.platform)),
 		"types": types,
 	}
 
@@ -36,10 +36,10 @@ func (c *Client) GetSelectorData(ctx context.Context, appID string, platform Pla
 //
 // 服务端实际返回 3 列: ["dtEventTime", "product_version", "first_date"]，
 // 按 columns 字段动态定位 product_version 和 first_date 的索引。
-func (c *Client) GetVersionDateList(ctx context.Context, appID string, platform Platform) ([]VersionDateItem, error) {
+func (c *Client) GetVersionDateList(ctx context.Context) ([]VersionDateItem, error) {
 	body := map[string]any{
-		"appId":      appID,
-		"platformId": int(platform),
+		"appId":      c.appID,
+		"platformId": int(c.platform),
 	}
 
 	var raw struct {

@@ -56,7 +56,7 @@ func main() {
 		r = crashsight.RegionSG
 	}
 
-	client := crashsight.NewClient(userID, apiKey,
+	client := crashsight.NewClient(userID, apiKey, appID, crashsight.PlatformPC,
 		crashsight.WithRegion(r),
 		crashsight.WithTimeout(60*time.Second),
 	)
@@ -64,7 +64,7 @@ func main() {
 
 	// ── 列出版本后退出 ────────────────────────────────────────────
 	if *listVersions {
-		sel, err := client.GetSelectorData(ctx, appID, crashsight.PlatformPC, crashsight.GetSelectorDataParams{Types: "version"})
+		sel, err := client.GetSelectorData(ctx, crashsight.GetSelectorDataParams{Types: "version"})
 		if err != nil {
 			log.Fatalf("GetSelectorData: %v", err)
 		}
@@ -107,7 +107,7 @@ func main() {
 
 	// ── 1. 每日趋势 ──────────────────────────────────────────────
 	fmt.Println("=== 崩溃趋势（按天）===")
-	trends, err := client.GetTrend(ctx, appID, crashsight.PlatformPC, crashsight.GetTrendParams{
+	trends, err := client.GetTrend(ctx, crashsight.GetTrendParams{
 		StartDate:     minDate,
 		EndDate:       maxDate,
 		CrashType:     crashsight.CrashTypeCrash,
@@ -134,7 +134,7 @@ func main() {
 		topVersionList = []string{"-1"}
 	}
 	fmt.Println("\n=== TOP 10 崩溃问题 ===")
-	topResp, err := client.GetTopIssues(ctx, appID, crashsight.PlatformPC, crashsight.GetTopIssuesParams{
+	topResp, err := client.GetTopIssues(ctx, crashsight.GetTopIssuesParams{
 		MinDate:          minDate,
 		MaxDate:          maxDate,
 		VersionList:      topVersionList,
@@ -159,7 +159,7 @@ func main() {
 		issueID := topResp.TopIssueList[0].IssueID
 		fmt.Printf("\n=== 级联查询 issueId=%s 的最新崩溃堆栈 ===\n", issueID)
 
-		lastCrash, err := client.GetLastCrash(ctx, appID, crashsight.PlatformPC, issueID)
+		lastCrash, err := client.GetLastCrash(ctx, issueID)
 		if err != nil {
 			printError("GetLastCrash", err)
 		} else {
@@ -169,7 +169,7 @@ func main() {
 			time.Sleep(2 * time.Second)
 
 			crashHash := crashsight.CrashIDToHash(lastCrash.CrashID)
-			doc, err := client.GetCrashDoc(ctx, appID, crashsight.PlatformPC, crashHash, crashsight.GetCrashDocParams{})
+			doc, err := client.GetCrashDoc(ctx, crashHash, crashsight.GetCrashDocParams{})
 			if err != nil {
 				printError("GetCrashDoc", err)
 			} else {
@@ -193,7 +193,7 @@ func main() {
 	fmt.Println("\n=== 日级汇总（DailySummary）===")
 	// DailySummary 只支持单版本，多版本时取第一个
 	summaryVersion := versionList[0]
-	summary, err := client.GetDailySummary(ctx, appID, crashsight.PlatformPC, crashsight.GetDailySummaryParams{
+	summary, err := client.GetDailySummary(ctx, crashsight.GetDailySummaryParams{
 		StartDate: minDate,
 		EndDate:   maxDate,
 		Version:   summaryVersion,
@@ -207,7 +207,7 @@ func main() {
 
 // recentVersions 从 GetVersionDateList 中筛选出首次出现日期在 [since, until] 范围内的版本号。
 func recentVersions(ctx context.Context, client *crashsight.Client, appID string, since, until time.Time) []string {
-	dates, err := client.GetVersionDateList(ctx, appID, crashsight.PlatformPC)
+	dates, err := client.GetVersionDateList(ctx, )
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "[GetVersionDateList] %v\n", err)
 		return nil
