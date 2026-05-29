@@ -185,7 +185,7 @@ func main() {
 		issueIDs = append(issueIDs, issue.IssueID)
 	}
 
-	chunkSize := 100 // 官方允许最大 1000，但为防止请求体积过大，设为 100 非常安全
+	chunkSize := 1000 // 官方接口硬上限为 1000
 	trendStartStr := startDateObj.Format("2006-01-02") + " 00:00:00"
 	trendEndStr := today.Format("2006-01-02") + " 23:59:59"
 
