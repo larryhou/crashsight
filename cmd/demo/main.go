@@ -19,8 +19,9 @@ func main() {
 	// ── 初始化客户端 ──────────────────────────────────────────────
 	userID := os.Getenv("CRASHSIGHT_USER_ID")
 	apiKey := os.Getenv("CRASHSIGHT_API_KEY")
-	if userID == "" || apiKey == "" {
-		log.Fatal("请设置环境变量 CRASHSIGHT_USER_ID 和 CRASHSIGHT_API_KEY")
+	appID := os.Getenv("CRASHSIGHT_APP_ID")
+	if userID == "" || apiKey == "" || appID == "" {
+		log.Fatal("请设置环境变量 CRASHSIGHT_USER_ID, CRASHSIGHT_API_KEY 和 CRASHSIGHT_APP_ID")
 	}
 
 	client := crashsight.NewClient(userID, apiKey,
@@ -29,13 +30,17 @@ func main() {
 	)
 
 	ctx := context.Background()
-	appID := "your_app_id" // 替换为实际项目 ID
+	
+	// 动态计算最近 7 天的日期范围
+	today := time.Now()
+	startDate := today.AddDate(0, 0, -7).Format("20060102")
+	endDate := today.Format("20060102")
 
 	// ── 示例 1: 获取每日崩溃趋势 ─────────────────────────────────
 	fmt.Println("=== 每日崩溃趋势 ===")
 	trends, err := client.GetTrend(ctx, appID, crashsight.PlatformPC, crashsight.GetTrendParams{
-		StartDate:     "20260520",
-		EndDate:       "20260527",
+		StartDate:     startDate,
+		EndDate:       endDate,
 		CrashType:     crashsight.CrashTypeCrash,
 		VersionList:   []string{"-1"},
 		MergeVersions: false,
@@ -49,8 +54,8 @@ func main() {
 	// ── 示例 2: 获取 TOP 问题列表 ─────────────────────────────────
 	fmt.Println("\n=== TOP 问题列表 ===")
 	topIssues, err := client.GetTopIssues(ctx, appID, crashsight.PlatformPC, crashsight.GetTopIssuesParams{
-		MinDate:          "20260520",
-		MaxDate:          "20260527",
+		MinDate:          startDate,
+		MaxDate:          endDate,
 		VersionList:      []string{"-1"},
 		CrashType:        crashsight.CrashTypeCrash,
 		Limit:            10,
@@ -65,33 +70,42 @@ func main() {
 
 	// ── 示例 3: 级联查询 issue → lastCrash → crashDoc ────────────
 	fmt.Println("\n=== 级联查询崩溃详情 ===")
-	issueID := "your_issue_id" // 替换为实际 issueId
-
-	issueInfo, err := client.GetIssueInfo(ctx, appID, crashsight.PlatformPC, issueID)
-	if err != nil {
-		handleError("GetIssueInfo", err)
-		return
+	var issueID string
+	if topIssues != nil && len(topIssues.TopIssueList) > 0 {
+		issueID = topIssues.TopIssueList[0].IssueID // 动态取刚才查到的第一个 Issue
+	} else {
+		issueID = os.Getenv("CRASHSIGHT_ISSUE_ID")
 	}
-	fmt.Printf("Issue: %s | %s\n", issueInfo.IssueID, issueInfo.ExceptionName)
 
-	time.Sleep(2 * time.Second) // 遵守 25 次/分钟限速
-
-	lastCrash, err := client.GetLastCrash(ctx, appID, crashsight.PlatformPC, issueID)
-	if err != nil {
-		handleError("GetLastCrash", err)
-		return
+	if issueID == "" {
+		fmt.Println("未找到可用的 IssueID，跳过该示例（可设置 CRASHSIGHT_ISSUE_ID）")
+	} else {
+		issueInfo, err := client.GetIssueInfo(ctx, appID, crashsight.PlatformPC, issueID)
+		if err != nil {
+			handleError("GetIssueInfo", err)
+		} else {
+			fmt.Printf("Issue: %s | %s\n", issueInfo.IssueID, issueInfo.ExceptionName)
+		}
+	
+		time.Sleep(2 * time.Second) // 遵守 25 次/分钟限速
+	
+		lastCrash, err := client.GetLastCrash(ctx, appID, crashsight.PlatformPC, issueID)
+		if err != nil {
+			handleError("GetLastCrash", err)
+		} else if lastCrash != nil {
+			fmt.Printf("Last CrashID: %s\n", lastCrash.CrashID)
+		
+			time.Sleep(2 * time.Second)
+		
+			crashHash := crashsight.CrashIDToHash(lastCrash.CrashID)
+			doc, err := client.GetCrashDoc(ctx, appID, crashsight.PlatformPC, crashHash, crashsight.GetCrashDocParams{})
+			if err != nil {
+				handleError("GetCrashDoc", err)
+			} else {
+				fmt.Printf("KeyStack:\n%s\n", doc.CrashMap.KeyStack)
+			}
+		}
 	}
-	fmt.Printf("Last CrashID: %s\n", lastCrash.CrashID)
-
-	time.Sleep(2 * time.Second)
-
-	crashHash := crashsight.CrashIDToHash(lastCrash.CrashID)
-	doc, err := client.GetCrashDoc(ctx, appID, crashsight.PlatformPC, crashHash, crashsight.GetCrashDocParams{})
-	if err != nil {
-		handleError("GetCrashDoc", err)
-		return
-	}
-	fmt.Printf("KeyStack:\n%s\n", doc.CrashMap.KeyStack)
 
 	// ── 示例 4: 获取选择器元数据（版本列表等）───────────────────────
 	fmt.Println("\n=== 选择器数据 ===")
@@ -129,8 +143,8 @@ func main() {
 		p := p // capture loop variable
 		go func() {
 			issues, err := client.GetTopIssues(ctx, appID, p, crashsight.GetTopIssuesParams{
-				MinDate:    "20260527",
-				MaxDate:    "20260527",
+				MinDate:    endDate,
+				MaxDate:    endDate,
 				Limit:      5,
 				MergeDates: true,
 			})
