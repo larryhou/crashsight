@@ -139,8 +139,9 @@ func main() {
 
 	log.Printf("scan start: appId=%s startDate=%s endDate=%s versionPrefixes=%v", appID, startDate, endDate, []string(prefixes))
 
-	// ── Step 1: fetch TOP issues for the time window (1 request) ─────────────
-	issues, err := fetchAllIssues(ctx, client, appID, startDate, endDate, *maxIssues)
+	// ── Step 1: fetch latest issues for the time window (1 request) ──────────
+	millis := int64((*daysFlag + 1) * 24 * 3600 * 1000)
+	issues, err := fetchLatestIssues(ctx, client, appID, millis, *maxIssues)
 	if err != nil {
 		log.Fatalf("failed to fetch issue list: %v", err)
 	}
@@ -226,25 +227,26 @@ func main() {
 	}
 }
 
-// fetchAllIssues fetches the TOP issue list for the given time window (1 request).
-func fetchAllIssues(ctx context.Context, client *crashsight.Client, appID, minDate, maxDate string, maxIssues int) ([]crashsight.IssueItem, error) {
-	resp, err := client.GetTopIssues(ctx, appID, crashsight.PlatformPC, crashsight.GetTopIssuesParams{
-		MinDate:          minDate,
-		MaxDate:          maxDate,
-		VersionList:      []string{"-1"},
-		CrashType:        crashsight.CrashTypeCrash,
-		Limit:            100,
-		TopIssueDataType: crashsight.TopIssueDataTypeUnSystemExit,
-		MergeDates:       true,
+// fetchLatestIssues fetches the latest issues updated within the time window.
+// It uses GetIssueList to get results sorted by uploadTime descending,
+// matching the behavior of the CrashSight web console.
+func fetchLatestIssues(ctx context.Context, client *crashsight.Client, appID string, millis int64, maxIssues int) ([]crashsight.IssueItem, error) {
+	limit := maxIssues
+	if limit <= 0 {
+		limit = 100 // default reasonable limit if not specified
+	}
+	resp, err := client.GetIssueList(ctx, appID, crashsight.PlatformPC, crashsight.GetIssueListParams{
+		ExceptionTypeList:             crashsight.ExceptionTypeCrash,
+		Status:                        "0,2", // 0=Unprocessed, 2=Processing
+		Rows:                          limit,
+		SortField:                     "uploadTime",
+		SortOrder:                     "desc",
+		IssueUploadTimeRelativeMillis: millis,
 	})
 	if err != nil {
 		return nil, err
 	}
-	all := resp.TopIssueList
-	if maxIssues > 0 && len(all) > maxIssues {
-		all = all[:maxIssues]
-	}
-	return all, nil
+	return resp.IssueList, nil
 }
 
 // fetchCrashesForIssue pages through all crashes for an issue (100 per page).
