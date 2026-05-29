@@ -508,6 +508,12 @@ type CrashData struct {
 	CpuName          string `json:"cpuName"`
 	// MemSize 物理内存总量（字节，字符串形式）
 	MemSize          string `json:"memSize"`
+	// 新增维度：可视化和多维度分析所需数据
+	CrashTime        string            `json:"crashTime"`
+	ElapsedTime      int64             `json:"elapsedTime"` // 运行时间（毫秒）
+	FreeMem          string            `json:"freeMem"`     // 剩余内存（字节，字符串形式）
+	Country          string            `json:"country"`     // 国家/地区
+	ReservedMap      map[string]string `json:"reservedMap"` // 存放详尽的显存占用等硬件状态
 }
 
 // CrashListResponse GetCrashList 的响应。
