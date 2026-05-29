@@ -197,9 +197,9 @@ VmTypeRealDevice VmType = 1  // 真机
 VmTypeEmulator   VmType = 2  // 模拟器
 
 // 问题状态
-IssueStatusUnprocessed IssueStatus = 0  // 未处理
-IssueStatusProcessed   IssueStatus = 1  // 已处理
-IssueStatusProcessing  IssueStatus = 2  // 处理中
+IssueStatusUnresolved IssueStatus = 0  // 未处理
+IssueStatusResolved   IssueStatus = 1  // 已处理
+IssueStatusResolving  IssueStatus = 2  // 处理中
 
 // 区域
 RegionCN Region = "cn"  // https://crashsight.qq.com

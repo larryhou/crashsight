@@ -61,20 +61,20 @@ const (
 type IssueStatus int
 
 const (
-	IssueStatusUnprocessed IssueStatus = 0 // 未处理
-	IssueStatusProcessed   IssueStatus = 1 // 已处理
-	IssueStatusProcessing  IssueStatus = 2 // 处理中
+	IssueStatusUnresolved IssueStatus = 0 // 未处理
+	IssueStatusResolved   IssueStatus = 1 // 已处理
+	IssueStatusResolving  IssueStatus = 2 // 处理中
 )
 
 // String 返回状态的可读名称。
 func (s IssueStatus) String() string {
 	switch s {
-	case IssueStatusUnprocessed:
-		return "Unprocessed"
-	case IssueStatusProcessed:
-		return "Processed"
-	case IssueStatusProcessing:
-		return "Processing"
+	case IssueStatusUnresolved:
+		return "Unresolved"
+	case IssueStatusResolved:
+		return "Resolved"
+	case IssueStatusResolving:
+		return "Resolving"
 	default:
 		return fmt.Sprintf("IssueStatus(%d)", int(s))
 	}
